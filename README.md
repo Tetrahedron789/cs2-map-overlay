@@ -2,7 +2,7 @@
 
 Mod de código para Cities: Skylines II (interfaz en inglés). Muestra OpenStreetMap sobre el terreno a escala real (1 m del mundo real = 1 unidad del juego, ajustable), como papel cebolla, para calcar trazados de ciudades reales. No afecta a la partida guardada.
 
-## Uso (0.1.1)
+## Uso (0.2.0)
 
 El botón del mod está en la barra superior izquierda de la partida. Abre un panel con:
 

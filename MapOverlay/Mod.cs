@@ -12,7 +12,7 @@ namespace MapOverlay
 {
     public class Mod : IMod
     {
-        public const string kVersion = "0.1.0";
+        public const string kVersion = "0.2.0";
 
         public static ILog log = LogManager.GetLogger(nameof(MapOverlay)).SetShowsErrorsInUI(false);
 
