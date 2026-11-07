@@ -1,0 +1,66 @@
+// Design tokens for the mod UI kit. Copy the kit folder into another mod and change
+// $accent (and the icon) to give it its own colour while keeping the same look.
+//
+// Sizes are in rem, which follows the game's UI scale (1rem ≈ 1px at 1080p). The game's
+// UI engine (Gameface) has no CSS grid and no flex `gap`: spacing comes from margins.
+
+// Brand: neutral whites and greys. Status colours (warning, danger) stay coloured.
+$accent: rgb(236, 239, 243);
+$accent-strong: rgb(255, 255, 255);
+$accent-soft: rgba(255, 255, 255, 0.12);
+$accent-line: rgba(255, 255, 255, 0.32);
+$on-accent: rgb(22, 24, 28);
+
+// Surfaces, darkest to lightest
+$panel-bg: rgba(20, 21, 24, 0.97);
+$header-bg: rgba(255, 255, 255, 0.03);
+$inset: rgba(0, 0, 0, 0.32);
+$surface-1: rgba(255, 255, 255, 0.045);
+$surface-2: rgba(255, 255, 255, 0.08);
+$surface-3: rgba(255, 255, 255, 0.14);
+$line: rgba(255, 255, 255, 0.07);
+$line-strong: rgba(255, 255, 255, 0.13);
+
+// Text
+$text: rgba(240, 244, 248, 0.94);
+$text-2: rgba(240, 244, 248, 0.62);
+$text-3: rgba(240, 244, 248, 0.4);
+
+// Status
+$warning: rgb(255, 186, 82);
+$warning-soft: rgba(255, 186, 82, 0.12);
+$danger: rgb(255, 120, 110);
+$info-soft: rgba(255, 255, 255, 0.05);
+
+// Spacing (4rem grid)
+$s1: 4rem;
+$s2: 8rem;
+$s3: 12rem;
+$s4: 16rem;
+
+// Type
+$text-xs: 11rem;
+$text-sm: 12rem;
+$text-md: 13.5rem;
+$text-lg: 15rem;
+
+// Shape
+$radius-sm: 4rem;
+$radius-md: 6rem;
+$radius-lg: 10rem;
+$control-h: 28rem;
+$control-h-sm: 24rem;
+
+@mixin row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+@mixin reset-button {
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: $text;
+}

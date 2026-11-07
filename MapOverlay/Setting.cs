@@ -6,16 +6,6 @@ using Game.UI;
 
 namespace MapOverlay
 {
-    public enum TileProvider
-    {
-        OpenStreetMap,
-        CartoLight,
-        CartoLightNoLabels,
-        CartoVoyager,
-        OpenTopoMap,
-        Custom,
-    }
-
     [FileLocation(nameof(MapOverlay))]
     [SettingsUIGroupOrder(kViewGroup, kMapGroup, kCacheGroup)]
     [SettingsUIShowGroupName(kViewGroup, kMapGroup, kCacheGroup)]
@@ -27,19 +17,33 @@ namespace MapOverlay
         public const string kCacheGroup = "Cache";
 
         public const int kMinZoom = 14;
-        public const int kMaxZoom = 19;
+        public const int kMaxZoom = 15;
         public const int kMinArea = 1;
         public const int kMaxArea = 10;
+
+        // Lowest detail used when a large area or a small scale would need too many tiles.
+        public const int kFloorZoom = 12;
+
+        // Map scale, in % (game metres per 100 real metres). Terraining's CS2 sizes span 28.672 to 229.376 km.
+        public const float kMinScale = 25f;
+        public const float kMaxScale = 200f;
+
+        // Side of the whole CS2 world map (playable area plus surroundings), as heightmap tools size it.
+        public const double kWorldMapMetres = 57344.0;
+
+        // Side of the playable area of a CS2 map, centred on the world origin.
+        public const double kWholeMapMetres = 14336.0;
 
         // Shown in the panel when the place is unknown: the centre of the Zócalo, Mexico City.
         public const double kDefaultLat = 19.432608;
         public const double kDefaultLon = -99.133209;
 
         private int m_Opacity = 50;
-        private int m_Zoom = 17;
+        private int m_Zoom = 15;
         private int m_AreaKm = 3;
         private float m_HeightOffset = 1f;
         private float m_Rotation;
+        private float m_Scale = 100f;
 
         public Setting(IMod mod) : base(mod)
         {
@@ -67,14 +71,6 @@ namespace MapOverlay
             set => m_HeightOffset = Math.Max(0f, Math.Min(50f, value));
         }
 
-        [SettingsUISection(kSection, kMapGroup)]
-        public TileProvider Provider { get; set; } = TileProvider.OpenStreetMap;
-
-        [SettingsUITextInput]
-        [SettingsUISection(kSection, kMapGroup)]
-        [SettingsUIHideByCondition(typeof(Setting), nameof(IsNotCustomProvider))]
-        public string CustomUrl { get; set; } = "";
-
         [SettingsUISlider(min = kMinZoom, max = kMaxZoom, step = 1, unit = Unit.kInteger, updateOnDragEnd = true)]
         [SettingsUISection(kSection, kMapGroup)]
         public int Zoom
@@ -85,14 +81,36 @@ namespace MapOverlay
 
         [SettingsUISlider(min = kMinArea, max = kMaxArea, step = 1, unit = Unit.kInteger, updateOnDragEnd = true)]
         [SettingsUISection(kSection, kMapGroup)]
+        [SettingsUIDisableByCondition(typeof(Setting), nameof(IsWholeMap))]
         public int AreaKm
         {
             get => m_AreaKm;
             set => m_AreaKm = Math.Max(kMinArea, Math.Min(kMaxArea, value));
         }
 
+        // Covers the playable area; the detail level drops as needed to stay within the tile limit.
         [SettingsUISection(kSection, kMapGroup)]
+        public bool WholeMap { get; set; }
+
+        [SettingsUISection(kSection, kMapGroup)]
+        [SettingsUIDisableByCondition(typeof(Setting), nameof(IsWholeMap))]
         public bool FollowCamera { get; set; } = true;
+
+        [SettingsUISection(kSection, kMapGroup)]
+        public TileSource Source { get; set; } = TileSource.OpenStreetMap;
+
+        // 100% is 1:1. Below 100% more real ground fits in the city.
+        [SettingsUISlider(min = kMinScale, max = kMaxScale, step = 0.5f, unit = Unit.kFloatSingleFraction, updateOnDragEnd = true)]
+        [SettingsUISection(kSection, kMapGroup)]
+        public float ScalePercent
+        {
+            get => m_Scale;
+            set => m_Scale = float.IsNaN(value) || float.IsInfinity(value) ? 100f : Math.Max(kMinScale, Math.Min(kMaxScale, value));
+        }
+
+        // Edited from the in-game panel ("Custom" source).
+        [SettingsUIHidden]
+        public string CustomUrl { get; set; } = "";
 
         // Setter-only bool renders as a button and is not saved.
         [SettingsUISection(kSection, kCacheGroup)]
@@ -119,7 +137,7 @@ namespace MapOverlay
             set => m_Rotation = NormalizeAngle(value);
         }
 
-        public bool IsNotCustomProvider() => Provider != TileProvider.Custom;
+        public bool IsWholeMap() => WholeMap;
 
         internal static float NormalizeAngle(float degrees)
         {
@@ -136,11 +154,13 @@ namespace MapOverlay
             Opacity = 50;
             OnTop = true;
             HeightOffset = 1f;
-            Provider = TileProvider.OpenStreetMap;
-            CustomUrl = "";
-            Zoom = 17;
+            Zoom = 15;
             AreaKm = 3;
+            WholeMap = false;
             FollowCamera = true;
+            Source = TileSource.OpenStreetMap;
+            ScalePercent = 100f;
+            CustomUrl = "";
             CenterLat = kDefaultLat;
             CenterLon = kDefaultLon;
             AnchorX = 0;

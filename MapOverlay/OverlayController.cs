@@ -37,7 +37,9 @@ namespace MapOverlay
             public Vector3[] Vertices;
             public TileState State;
             public bool Removed;
+            public bool NotCached;  // Looked for on disk and not found.
             public double Priority;
+            public float CenterX, CenterZ;
         }
 
         private enum TileState { Pending, Loading, Ready, Failed }
@@ -66,12 +68,20 @@ namespace MapOverlay
         private float m_BackoffUntil;
         private bool m_LoggedUpdateError;
 
+        // Drag in progress (MapDragTool): the tiles move as one piece until it is committed.
+        private bool m_Previewing;
+        private float3 m_PreviewMove, m_PreviewPivot;
+        private float m_PreviewAngle;
+
         // Last applied state; a change triggers a rebuild.
         private double m_LayoutLat = double.NaN, m_LayoutLon, m_LayoutAnchorX, m_LayoutAnchorZ;
         private float m_LayoutRotation;
         private int m_LayoutZoom, m_LayoutArea;
-        private string m_LayoutTemplate;
+        private float m_LayoutScale;
+        private bool m_LayoutWholeMap;
+        private string m_Template;
         private string m_CacheKey;
+        private bool m_ServerSet;
         private int m_MaterialOpacity = -1;
         private bool m_MaterialOnTop;
 
@@ -80,12 +90,98 @@ namespace MapOverlay
         internal int TilesReady { get; private set; }
         internal int TilesFailed { get; private set; }
         internal string Problem { get; private set; } = "";
-        internal int EffectiveZoom => Math.Min(m_Setting.Zoom, TileSources.MaxZoom(m_Setting.Provider));
+        internal string Attribution => TileSources.Attribution(m_Setting);
+        internal double Scale => m_Setting.ScalePercent / 100.0;
+
+        // Detail actually used: the chosen level, lowered when the area would need too many tiles.
+        internal int EffectiveZoom => Math.Min(m_Setting.Zoom, m_Setting.WholeMap ? WholeMapZoom : AreaZoom);
+
+        // Highest detail level at which the whole map fits within kMaxTiles.
+        internal int WholeMapZoom
+        {
+            get
+            {
+                WholeMapCenter(out double lat, out _, out double halfMetres);
+                return FitZoom(lat, halfMetres);
+            }
+        }
+
+        // Same for the chosen area around the anchor.
+        internal int AreaZoom => FitZoom(m_Setting.CenterLat, m_Setting.AreaKm * 1000.0 / 2.0);
+
+        // ---- Area steps --------------------------------------------------------------------
+        // An area loads whole rings of tiles around the centre tile: (2r + 1)² tiles. AreaKm is
+        // the size asked for; it maps to the nearest ring count, which depends on the detail
+        // level, the latitude and the scale. Steps skip sizes that would load the same tiles.
+
+        private const int kMaxRings = 14;  // (2·14 + 1)² = 841 ≤ kMaxTiles
+
+        private double TileGameMetres(int zoom) => GeoMath.TileMetres(m_Setting.CenterLat, zoom) * Scale;
+
+        private int ZoomFor(int areaKm) => Math.Min(m_Setting.Zoom, FitZoom(m_Setting.CenterLat, areaKm * 1000.0 / 2.0));
+
+        private int Rings(int areaKm, int zoom)
+        {
+            int r = (int)Math.Round((areaKm * 1000.0 / TileGameMetres(zoom) - 1.0) / 2.0);
+            return Math.Max(0, Math.Min(kMaxRings, r));
+        }
+
+        // Side of the square that would load for areaKm, in game metres.
+        private double SideFor(int areaKm)
+        {
+            int z = ZoomFor(areaKm);
+            return (2 * Rings(areaKm, z) + 1) * TileGameMetres(z);
+        }
+
+        // Side of the square actually loaded (outside whole-map mode), in game metres.
+        internal double AreaMetres => SideFor(m_Setting.AreaKm);
+
+        // Next AreaKm in direction dir that loads a different square, or -1.
+        private int NextArea(int dir)
+        {
+            double current = SideFor(m_Setting.AreaKm);
+            for (int a = m_Setting.AreaKm + dir; a >= Setting.kMinArea && a <= Setting.kMaxArea; a += dir)
+                if (Math.Abs(SideFor(a) - current) > 1.0) return a;
+            return -1;
+        }
+
+        internal bool CanGrowArea => NextArea(1) > 0;
+        internal bool CanShrinkArea => NextArea(-1) > 0;
+
+        internal void StepArea(int dir)
+        {
+            int a = NextArea(dir > 0 ? 1 : -1);
+            if (a < 0) return;
+            m_Setting.AreaKm = a;
+            m_Setting.ApplyAndSave();
+        }
+
+        // halfMetres is in game metres; the tiles cover halfMetres / Scale real metres.
+        private int FitZoom(double lat, double halfMetres)
+        {
+            double halfReal = halfMetres / Scale;
+            for (int z = Setting.kMaxZoom; z > Setting.kFloorZoom; z--)
+            {
+                int side = 2 * (int)Math.Ceiling(halfReal / GeoMath.TileMetres(lat, z)) + 1;
+                if (side * side <= kMaxTiles) return z;
+            }
+            return Setting.kFloorZoom;
+        }
+
+        // Geographic point at the world origin and half the side, in map metres, of the square
+        // that holds the playable area at the current rotation.
+        private void WholeMapCenter(out double lat, out double lon, out double halfMetres)
+        {
+            CurrentFrame().ToGeo(0, 0, out lat, out lon);
+            double r = m_Setting.Rotation * Math.PI / 180.0;
+            halfMetres = Setting.kWholeMapMetres / 2.0 * (Math.Abs(Math.Cos(r)) + Math.Abs(Math.Sin(r)));
+        }
 
         public void Initialize(Setting setting)
         {
             m_Setting = setting;
             Geocoder = new Geocoder(this);
+            TileCache.RemoveLegacyCache();
             m_Root = new GameObject("MapOverlayTiles") { hideFlags = HideFlags.HideAndDontSave };
             DontDestroyOnLoad(m_Root);
             m_Shader = Shader.Find("HDRP/Unlit");
@@ -96,8 +192,7 @@ namespace MapOverlay
 
         public void Shutdown()
         {
-            foreach (var d in m_Downloads) d.Request.Dispose();
-            m_Downloads.Clear();
+            CancelDownloads();
             Geocoder?.Dispose();
             ClearTiles();
             if (m_Root != null) Destroy(m_Root);
@@ -117,7 +212,10 @@ namespace MapOverlay
                     TileCache.ClearDisk();
                 }
 
-                bool active = m_Setting.Visible && m_Shader != null && GameManager.instance != null
+                string template = TileSources.Template(m_Setting);
+                if (!m_ServerSet || template != m_Template) ChangeServer(template);
+
+                bool active = m_Setting.Visible && m_Shader != null && m_Template != null && GameManager.instance != null
                     && GameManager.instance.gameMode.IsGameOrEditor();
                 if (m_Root.activeSelf != active) m_Root.SetActive(active);
                 // Downloads in flight finish even when hidden, but nothing new starts.
@@ -158,7 +256,26 @@ namespace MapOverlay
         }
 
         private MapFrame CurrentFrame() =>
-            new MapFrame(m_Setting.CenterLat, m_Setting.CenterLon, m_Setting.AnchorX, m_Setting.AnchorZ, m_Setting.Rotation);
+            new MapFrame(m_Setting.CenterLat, m_Setting.CenterLon, m_Setting.AnchorX, m_Setting.AnchorZ, m_Setting.Rotation, Scale);
+
+        // A new tile server: tiles from the old one go, downloads in flight are dropped.
+        private void ChangeServer(string template)
+        {
+            CancelDownloads();
+            ClearTiles();
+            m_Template = template;
+            m_ServerSet = true;
+            m_CacheKey = template != null ? TileSources.CacheKey(template) : null;
+            m_BackoffUntil = 0f;
+            Problem = template == null ? "BadUrl" : "";
+            if (template != null) Mod.log.Info($"Tile server: {m_Setting.Source}");
+        }
+
+        private void CancelDownloads()
+        {
+            foreach (var d in m_Downloads) d.Request.Dispose();
+            m_Downloads.Clear();
+        }
 
         // Moves the anchor to (x, z) without moving the map content on the ground.
         private void RecenterAt(double x, double z)
@@ -172,10 +289,10 @@ namespace MapOverlay
 
         private void FollowCamera()
         {
-            if (!m_Setting.FollowCamera || !TryGetCameraPivot(out var pivot)) return;
+            if (!m_Setting.FollowCamera || m_Setting.WholeMap || m_Previewing || !TryGetCameraPivot(out var pivot)) return;
             double dx = pivot.x - m_Setting.AnchorX;
             double dz = pivot.z - m_Setting.AnchorZ;
-            double limit = m_Setting.AreaKm * 1000.0 / 4.0;
+            double limit = AreaMetres / 4.0;
             if (dx * dx + dz * dz < limit * limit) return;
             RecenterAt(pivot.x, pivot.z);
             m_Setting.ApplyAndSave();
@@ -232,22 +349,83 @@ namespace MapOverlay
             m_Setting.ApplyAndSave();
         }
 
+        // Changes the scale around the point the camera looks at.
+        internal void SetScale(float percent)
+        {
+            if (TryGetCameraPivot(out var pivot)) RecenterAt(pivot.x, pivot.z);
+            m_Setting.ScalePercent = percent;
+            m_Setting.ApplyAndSave();
+        }
+
+        // Puts the map centre at the centre of the game map, where heightmap tools put the
+        // centre of the area they export.
+        internal void AlignToMapCentre()
+        {
+            m_Setting.AnchorX = 0;
+            m_Setting.AnchorZ = 0;
+            m_Setting.ApplyAndSave();
+        }
+
+        // ---- Dragging ----------------------------------------------------------------------
+
+        internal void BeginPreview()
+        {
+            m_Previewing = true;
+            SetPreview(float3.zero, 0f, float3.zero);
+        }
+
+        // Shows the map moved by `move` after turning it by `angle` degrees (clockwise) around `pivot`.
+        internal void SetPreview(float3 move, float angle, float3 pivot)
+        {
+            if (!m_Previewing) return;
+            m_PreviewMove = new float3(move.x, 0f, move.z);
+            m_PreviewAngle = angle;
+            m_PreviewPivot = new float3(pivot.x, 0f, pivot.z);
+            var rotation = Quaternion.Euler(0f, angle, 0f);
+            Vector3 p = m_PreviewPivot;
+            m_Root.transform.SetPositionAndRotation(p + (Vector3)m_PreviewMove - rotation * p, rotation);
+        }
+
+        // Saves the previewed placement: the anchor goes through the same move as the tiles.
+        internal void CommitPreview()
+        {
+            if (!m_Previewing) return;
+            m_Previewing = false;
+            var rotation = Quaternion.Euler(0f, m_PreviewAngle, 0f);
+            Vector3 p = m_PreviewPivot;
+            Vector3 anchor = new Vector3((float)m_Setting.AnchorX, 0f, (float)m_Setting.AnchorZ);
+            Vector3 moved = rotation * (anchor - p) + p + (Vector3)m_PreviewMove;
+            m_Setting.AnchorX = moved.x;
+            m_Setting.AnchorZ = moved.z;
+            m_Setting.Rotation += m_PreviewAngle;
+            m_Setting.ApplyAndSave();
+            // Rebuilt in place now, so the tiles never show at the old placement for a frame.
+            ResetRoot();
+            RebuildLayout();
+        }
+
+        internal void CancelPreview()
+        {
+            m_Previewing = false;
+            ResetRoot();
+        }
+
+        private void ResetRoot()
+        {
+            if (m_Root != null) m_Root.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+        }
+
         // ---- Layout ------------------------------------------------------------------------
 
         private bool LayoutChanged() =>
             m_Setting.CenterLat != m_LayoutLat || m_Setting.CenterLon != m_LayoutLon
             || m_Setting.AnchorX != m_LayoutAnchorX || m_Setting.AnchorZ != m_LayoutAnchorZ
             || m_Setting.Rotation != m_LayoutRotation || EffectiveZoom != m_LayoutZoom
-            || m_Setting.AreaKm != m_LayoutArea || TileSources.Template(m_Setting) != m_LayoutTemplate;
+            || m_Setting.AreaKm != m_LayoutArea || m_Setting.WholeMap != m_LayoutWholeMap
+            || m_Setting.ScalePercent != m_LayoutScale;
 
         private void RebuildLayout()
         {
-            string template = TileSources.Template(m_Setting);
-            if (template != m_LayoutTemplate)
-            {
-                ClearTiles();
-                m_CacheKey = TileSources.CacheKey(template);
-            }
             m_LayoutLat = m_Setting.CenterLat;
             m_LayoutLon = m_Setting.CenterLon;
             m_LayoutAnchorX = m_Setting.AnchorX;
@@ -255,25 +433,31 @@ namespace MapOverlay
             m_LayoutRotation = m_Setting.Rotation;
             m_LayoutZoom = EffectiveZoom;
             m_LayoutArea = m_Setting.AreaKm;
-            m_LayoutTemplate = template;
+            m_LayoutWholeMap = m_Setting.WholeMap;
+            m_LayoutScale = m_Setting.ScalePercent;
             m_Frame = CurrentFrame();
 
-            // A new template already cleared the tiles above.
-            if (!TileSources.IsValidTemplate(template))
-            {
-                Problem = "BadUrl";
-                return;
-            }
-            if (Problem == "BadUrl") Problem = "";
+            double lat = m_LayoutLat, lon = m_LayoutLon, halfMetres = m_LayoutArea * 1000.0 / 2.0;
+            if (m_LayoutWholeMap) WholeMapCenter(out lat, out lon, out halfMetres);
 
             int z = m_LayoutZoom;
-            double cx = GeoMath.TileX(m_LayoutLon, z);
-            double cy = GeoMath.TileY(m_LayoutLat, z);
-            double half = m_LayoutArea * 1000.0 / 2.0 / GeoMath.TileMetres(m_LayoutLat, z);
+            double cx = GeoMath.TileX(lon, z);
+            double cy = GeoMath.TileY(lat, z);
+            double half = halfMetres / m_Frame.Scale / GeoMath.TileMetres(lat, z);
             half = Math.Min(half, Math.Sqrt(kMaxTiles) / 2.0 - 0.5);
             int n = 1 << z;
             int x0 = (int)Math.Floor(cx - half), x1 = (int)Math.Floor(cx + half);
             int y0 = Math.Max(0, (int)Math.Floor(cy - half)), y1 = Math.Min(n - 1, (int)Math.Floor(cy + half));
+            if (!m_LayoutWholeMap)
+            {
+                // Whole rings of tiles around the centre tile, so every area step loads something new.
+                int r = Rings(m_LayoutArea, z);
+                int tx = (int)Math.Floor(cx), ty = (int)Math.Floor(cy);
+                x0 = tx - r;
+                x1 = tx + r;
+                y0 = Math.Max(0, ty - r);
+                y1 = Math.Min(n - 1, ty + r);
+            }
 
             var needed = new HashSet<long>();
             for (int y = y0; y <= y1; y++)
@@ -347,6 +531,9 @@ namespace MapOverlay
                     tile.Vertices[i] = new Vector3((float)x, tile.Vertices[i].y, (float)z);
                 }
             }
+            var centre = tile.Vertices[kGrid / 2 * (kGrid + 1) + kGrid / 2];
+            tile.CenterX = centre.x;
+            tile.CenterZ = centre.z;
         }
 
         private void RefreshHeights(int count)
@@ -404,7 +591,6 @@ namespace MapOverlay
             m_Tiles.Clear();
             m_Pending.Clear();
             m_LayoutLat = double.NaN;
-            m_LayoutTemplate = null;
             CountStates();
         }
 
@@ -422,9 +608,22 @@ namespace MapOverlay
 
         // ---- Loading -----------------------------------------------------------------------
 
+        // Cached tiles show anywhere. With "Whole map", tiles are downloaded only near the point
+        // the camera looks at (the tile servers forbid fetching tiles nobody is looking at); the
+        // rest fill in as the camera moves over them.
         private void StartLoads()
         {
-            int cacheLoads = 0;
+            bool nearOnly = m_Setting.WholeMap;
+            float3 pivot = default;
+            float radius2 = 0f;
+            if (nearOnly)
+            {
+                if (!TryGetCameraPivot(out pivot)) return;
+                float radius = DownloadRadius(pivot);
+                radius2 = radius * radius;
+            }
+
+            int reads = 0;
             for (int i = 0; i < m_Pending.Count;)
             {
                 var tile = m_Pending[i];
@@ -433,29 +632,46 @@ namespace MapOverlay
                     m_Pending.RemoveAt(i);
                     continue;
                 }
+                bool near = !nearOnly || Distance2(tile, pivot) <= radius2;
                 string path = TileCache.PathFor(m_CacheKey, tile.Z, Wrap(tile.X, tile.Z), tile.Y);
-                if (cacheLoads < kMaxCacheLoadsPerFrame && TileCache.TryRead(path, out var bytes, out bool stale))
+                if (!tile.NotCached)
                 {
-                    cacheLoads++;
-                    if (!stale || !CanDownload())
+                    // Disk reads are spread over frames; the order is kept.
+                    if (reads >= kMaxCacheLoadsPerFrame) break;
+                    reads++;
+                    if (TileCache.TryRead(path, out var bytes, out bool stale))
                     {
-                        // A stale tile shows now and is refreshed on a later visit.
-                        SetTexture(tile, bytes);
+                        if (stale && near && CanDownload()) StartDownload(tile, path, bytes);
+                        else SetTexture(tile, bytes);  // A stale tile shows now and is checked on a later visit.
                         m_Pending.RemoveAt(i);
                         continue;
                     }
-                    StartDownload(tile, path, bytes);
-                    m_Pending.RemoveAt(i);
-                    continue;
+                    tile.NotCached = true;
                 }
-                if (CanDownload())
+                if (!near)
                 {
-                    StartDownload(tile, path, null);
-                    m_Pending.RemoveAt(i);
+                    i++;
                     continue;
                 }
-                break;
+                if (!CanDownload()) break;
+                StartDownload(tile, path, null);
+                m_Pending.RemoveAt(i);
             }
+        }
+
+        // Grows with the camera's distance, like the part of the map on screen.
+        private float DownloadRadius(float3 pivot)
+        {
+            var cam = CameraTransform();
+            float distance = cam != null ? Vector3.Distance(cam.position, pivot) : 1000f;
+            float tile = (float)TileGameMetres(EffectiveZoom);
+            return Mathf.Clamp(distance * 1.5f, 2000f, 8000f) + tile * 0.71f;
+        }
+
+        private static float Distance2(Tile tile, float3 pivot)
+        {
+            float dx = tile.CenterX - pivot.x, dz = tile.CenterZ - pivot.z;
+            return dx * dx + dz * dz;
         }
 
         private bool CanDownload() => m_Downloads.Count < kMaxDownloads && Time.realtimeSinceStartup >= m_BackoffUntil;
@@ -468,9 +684,12 @@ namespace MapOverlay
 
         private void StartDownload(Tile tile, string path, byte[] stale)
         {
-            string url = TileSources.Url(m_LayoutTemplate, tile.Z, Wrap(tile.X, tile.Z), tile.Y);
+            string url = TileSources.Url(m_Template, tile.Z, Wrap(tile.X, tile.Z), tile.Y);
             var request = UnityWebRequest.Get(url);
             request.SetRequestHeader("User-Agent", TileSources.UserAgent);
+            // A stale tile is checked rather than downloaded again: the server answers 304 if unchanged.
+            if (stale != null)
+                request.SetRequestHeader("If-Modified-Since", TileCache.LastWrite(path).ToString("R"));
             request.timeout = 20;
             request.SendWebRequest();
             tile.State = TileState.Loading;
@@ -488,6 +707,13 @@ namespace MapOverlay
                 changed = true;
                 using (var request = d.Request)
                 {
+                    if (request.responseCode == 304 && d.Stale != null)
+                    {
+                        TileCache.Touch(d.Path);
+                        if (!d.Tile.Removed) SetTexture(d.Tile, d.Stale);
+                        continue;
+                    }
+
                     if (request.result == UnityWebRequest.Result.Success && request.downloadHandler.data?.Length > 0)
                     {
                         byte[] bytes = request.downloadHandler.data;

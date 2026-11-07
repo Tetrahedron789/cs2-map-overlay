@@ -1,5 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <path d="M3 7 L11 4 L21 7 L29 4 V25 L21 28 L11 25 L3 28 Z" fill="none" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
-  <path d="M11 4 V25 M21 7 V28" stroke="#ffffff" stroke-width="1.5" opacity="0.6"/>
-  <path d="M5 18 L13 13 L19 17 L27 11" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- A globe with a location pin over its top-right edge. -->
+  <g fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="13" cy="19" r="10.5"/>
+    <ellipse cx="13" cy="19" rx="4.6" ry="10.5"/>
+    <path d="M2.5 19 H23.5"/>
+    <path d="M4.2 13.5 H21.8 M4.2 24.5 H21.8" opacity="0.7"/>
+  </g>
+  <!-- Dark outline separates the pin from the globe lines under it. -->
+  <path d="M24 2 a6.5 6.5 0 0 1 6.5 6.5 c0 4.6 -6.5 10.8 -6.5 10.8 s-6.5 -6.2 -6.5 -10.8 A6.5 6.5 0 0 1 24 2 Z" fill="#1c1d21"/>
+  <path fill="#ffffff" fill-rule="evenodd" d="M24 3.6 a4.9 4.9 0 0 1 4.9 4.9 c0 3.4 -4.9 8.4 -4.9 8.4 s-4.9 -5 -4.9 -8.4 A4.9 4.9 0 0 1 24 3.6 Z M24 6.4 a2.1 2.1 0 1 0 0 4.2 a2.1 2.1 0 1 0 0 -4.2 Z"/>
 </svg>

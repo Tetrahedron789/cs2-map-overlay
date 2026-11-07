@@ -1,334 +1,71 @@
-// Sizes in rem follow the game's UI scale (1rem ≈ 1px at 1080p).
-$accent: rgba(110, 190, 255, 1);
-$text: rgba(255, 255, 255, 0.9);
-$muted: rgba(255, 255, 255, 0.55);
+// Map Overlay-specific pieces; shared controls and tokens live in ../kit.
+@use "../kit/tokens" as *;
 
-.panel {
-  position: absolute;
-  top: 70rem;
-  left: 10rem;
-  width: 380rem;
-  pointer-events: auto;
+.headerSwitch {
+  @include row;
+  margin-right: $s2;
 }
 
-.title {
-  color: $text;
-  font-size: 16rem;
-  font-weight: bold;
-  padding: 6rem 0;
-}
-
-.toggle {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  width: 100%;
-  padding: 8rem 4rem;
-  margin-bottom: 10rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: none;
-  border-radius: 4rem;
-  color: $text;
-  font-size: 14rem;
-  &:hover {
-    background: rgba(255, 255, 255, 0.12);
-  }
-}
-
-.checkbox {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18rem;
-  height: 18rem;
-  margin-right: 10rem;
-  border: 2rem solid $muted;
-  border-radius: 3rem;
-  font-size: 13rem;
-  color: white;
-}
-
-.toggleOn .checkbox {
-  background: $accent;
-  border-color: $accent;
-}
-
-.row {
-  margin-bottom: 10rem;
-}
-
-.disabled {
-  opacity: 0.4;
-}
-
-.rowHeader {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  margin-bottom: 4rem;
-}
-
-.label {
-  color: $text;
-  font-size: 14rem;
-}
-
-.value {
-  color: $accent;
-  font-size: 14rem;
-}
-
-.sliderLine {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-}
-
-.stepButton {
-  width: 24rem;
-  height: 24rem;
-  padding: 0;
-  border: none;
-  border-radius: 4rem;
-  background: rgba(255, 255, 255, 0.1);
-  color: $text;
-  font-size: 16rem;
-  &:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-}
-
-.track {
-  position: relative;
-  flex: 1;
-  height: 8rem;
-  margin: 0 10rem;
-  border-radius: 4rem;
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  border-radius: 4rem;
-  background: $accent;
-}
-
-.thumb {
-  position: absolute;
-  top: -5rem;
-  width: 18rem;
-  height: 18rem;
-  margin-left: -9rem;
-  border-radius: 50%;
-  background: white;
-}
-
-.separator {
-  height: 1rem;
-  margin: 6rem 0 12rem 0;
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.hint {
-  color: $muted;
-  font-size: 12rem;
-}
-
-.scroll {
-  max-height: 780rem;
-  overflow-y: auto;
-  padding-right: 4rem;
-}
-
-.section {
-  margin-bottom: 10rem;
-}
-
-.sectionTitle {
-  color: $text;
-  font-size: 14rem;
-  font-weight: bold;
-  margin-bottom: 6rem;
-}
-
-.button {
-  padding: 5rem 9rem;
-  border: none;
-  border-radius: 4rem;
-  background: rgba(255, 255, 255, 0.1);
-  color: $text;
-  font-size: 13rem;
-  &:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-}
-
-.searchRow {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 4rem;
-}
-
-.searchInput {
-  flex: 1;
-  height: 30rem;
-  padding: 0 8rem;
-  margin-right: 6rem;
-  border: 1rem solid rgba(255, 255, 255, 0.25);
-  border-radius: 4rem;
-  background: rgba(0, 0, 0, 0.3);
-  color: $text;
-  font-size: 13rem;
-  &:focus {
-    border-color: $accent;
-  }
-}
-
-.results {
-  display: flex;
-  flex-direction: column;
-  margin-top: 4rem;
-}
-
-.result {
-  padding: 6rem 8rem;
-  margin-bottom: 3rem;
-  border: none;
-  border-radius: 4rem;
-  background: rgba(255, 255, 255, 0.06);
-  color: $text;
-  font-size: 12rem;
-  text-align: left;
-  &:hover {
-    background: rgba(110, 190, 255, 0.3);
-  }
-}
-
-.warning {
-  color: rgba(255, 190, 90, 1);
-  font-size: 12rem;
-  margin: 4rem 0;
-}
+// ---- Move pad -----------------------------------------------------------------------
 
 .moveRow {
-  display: flex;
-  flex-direction: row;
+  @include row;
   align-items: flex-start;
-  margin-bottom: 6rem;
+  margin-bottom: $s3;
 }
 
 .pad {
-  display: grid;
-  grid-template-columns: 34rem 34rem 34rem;
-  grid-template-rows: 34rem 34rem 34rem;
-  margin-right: 14rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  margin-right: $s3;
+  border-radius: $radius-md;
+  background: $inset;
+}
+
+.padRow {
+  @include row;
+  justify-content: center;
 }
 
 .padButton {
-  width: 32rem;
-  height: 32rem;
-  padding: 0;
-  border: none;
-  border-radius: 4rem;
-  background: rgba(255, 255, 255, 0.12);
-  color: $text;
-  font-size: 14rem;
+  @include reset-button;
+  width: 30rem;
+  height: 30rem;
+  margin: 1rem;
+  border-radius: $radius-sm;
+  background: $surface-2;
+  color: $text-2;
+  font-size: $text-sm;
   &:hover {
-    background: rgba(110, 190, 255, 0.45);
+    background: $accent-soft;
+    color: $accent;
   }
 }
 
+.padCenter {
+  color: $accent;
+}
+
+// Fills the space next to the pad.
 .moveSide {
   display: flex;
   flex-direction: column;
   flex: 1;
+  padding-top: 2rem;
 }
 
-.chips {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  margin: 4rem 0 8rem 0;
+// ---- Misc ---------------------------------------------------------------------------
+
+.customUrl {
+  margin-top: $s2;
 }
 
-.chip {
-  padding: 4rem 8rem;
-  margin: 0 4rem 4rem 0;
-  border: none;
-  border-radius: 10rem;
-  background: rgba(255, 255, 255, 0.1);
-  color: $text;
-  font-size: 12rem;
-  &:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
+.indent {
+  margin: -$s1 0 $s2 $s2;
 }
 
-.chipOn {
-  background: $accent;
-  color: rgba(20, 30, 40, 1);
-  &:hover {
-    background: $accent;
-  }
-}
-
-.linkButton {
-  padding: 4rem 0;
-  border: none;
-  background: none;
-  color: $accent;
-  font-size: 13rem;
-  text-align: left;
-  &:hover {
-    color: white;
-  }
-}
-
-.rotateRow {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-}
-
-.stepper {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8rem;
-}
-
-.stepperControls {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-}
-
-.stepperValue {
-  min-width: 170rem;
-  color: $accent;
-  font-size: 13rem;
-  text-align: center;
-}
-
-.footer {
-  margin-top: 6rem;
-}
-
-.statusLine {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  color: $muted;
-  font-size: 12rem;
-}
-
-.attribution {
-  margin-top: 4rem;
-  color: $muted;
-  font-size: 11rem;
+.footerWarning {
+  margin-bottom: $s2;
 }

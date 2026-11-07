@@ -63,7 +63,8 @@ module.exports = {
               modules: {
                 auto: true,
                 exportLocalsConvention: "camelCase",
-                localIdentName: "[local]_[hash:base64:3]",
+                // Prefixed with the mod id: other mods may ship the same kit with different styles.
+                localIdentName: `${MOD.id}-[local]-[hash:base64:4]`,
               },
             },
           },

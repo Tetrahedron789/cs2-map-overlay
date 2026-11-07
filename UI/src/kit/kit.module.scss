@@ -1,0 +1,513 @@
+@use "tokens" as *;
+
+// ---- Panel shell --------------------------------------------------------------------
+
+.panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border: 1rem solid $line-strong;
+  border-radius: $radius-lg;
+  background: $panel-bg;
+  box-shadow: 0 14rem 36rem rgba(0, 0, 0, 0.5);
+  color: $text;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.header {
+  @include row;
+  padding: $s2 $s2 $s2 $s3;
+  border-bottom: 1rem solid $line;
+  background: $header-bg;
+}
+
+.badge {
+  @include row;
+  justify-content: center;
+  width: 30rem;
+  height: 30rem;
+  margin-right: $s3;
+  border-radius: 8rem;
+  background: $accent-soft;
+  border: 1rem solid $accent-line;
+}
+
+.badgeIcon {
+  width: 20rem;
+  height: 20rem;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.title {
+  color: $text;
+  font-size: $text-lg;
+  font-weight: bold;
+  letter-spacing: 0.3rem;
+}
+
+.subtitle {
+  margin-top: 1rem;
+  color: $text-3;
+  font-size: $text-xs;
+}
+
+.headerActions {
+  @include row;
+}
+
+.iconButton {
+  @include reset-button;
+  @include row;
+  justify-content: center;
+  width: $control-h;
+  height: $control-h;
+  margin-left: $s1;
+  border-radius: $radius-md;
+  color: $text-2;
+  font-size: $text-lg;
+  &:hover {
+    background: $surface-2;
+    color: $text;
+  }
+}
+
+.closeIcon {
+  position: relative;
+  width: 12rem;
+  height: 12rem;
+}
+
+.closeBar {
+  position: absolute;
+  top: 5rem;
+  left: -1rem;
+  width: 14rem;
+  height: 2rem;
+  border-radius: 1rem;
+  background: $text-2;
+  transform: rotate(45deg);
+}
+
+.closeBarCross {
+  transform: rotate(-45deg);
+}
+
+.iconButton:hover .closeBar {
+  background: $text;
+}
+
+.body {
+  overflow-y: auto;
+  padding: $s3 $s3 0 $s3;
+}
+
+.footer {
+  padding: $s2 $s3 $s3 $s3;
+  border-top: 1rem solid $line;
+  background: $header-bg;
+}
+
+// ---- Sections -----------------------------------------------------------------------
+
+.section {
+  margin-bottom: $s2;
+  border: 1rem solid $line;
+  border-radius: $radius-md;
+  background: $surface-1;
+}
+
+.sectionHead {
+  @include reset-button;
+  @include row;
+  width: 100%;
+  height: 34rem;
+  padding: 0 $s3 0 $s2;
+  &:hover {
+    background: $surface-1;
+  }
+}
+
+.chevron {
+  width: 16rem;
+  margin-right: $s1;
+  color: $text-3;
+  font-size: $text-sm;
+  text-align: center;
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+  color: $accent;
+}
+
+.sectionTitle {
+  flex: 1;
+  color: $text-2;
+  font-size: $text-xs;
+  font-weight: bold;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 1.2rem;
+}
+
+.sectionOpen .sectionTitle {
+  color: $text;
+}
+
+.summary {
+  padding: 2rem $s2;
+  border-radius: 9rem;
+  background: $surface-2;
+  color: $text-2;
+  font-size: $text-xs;
+}
+
+.sectionBody {
+  padding: $s1 $s3 $s3 $s3;
+}
+
+// A vertical unit with standard spacing below it.
+.stack {
+  margin-bottom: $s3;
+}
+
+.last {
+  margin-bottom: 0;
+}
+
+// ---- Text ---------------------------------------------------------------------------
+
+.label {
+  color: $text;
+  font-size: $text-md;
+}
+
+.caption {
+  margin-bottom: $s1;
+  color: $text-2;
+  font-size: $text-sm;
+}
+
+.value {
+  color: $accent;
+  font-size: $text-md;
+}
+
+.hint {
+  margin-top: $s1;
+  color: $text-3;
+  font-size: $text-sm;
+}
+
+.warningText {
+  color: $warning;
+  font-size: $text-sm;
+}
+
+.labelRow {
+  @include row;
+  justify-content: space-between;
+  margin-bottom: $s1;
+}
+
+// ---- Rows ---------------------------------------------------------------------------
+
+// Label on the left, control on the right.
+.row {
+  @include row;
+  justify-content: space-between;
+  width: 100%;
+  min-height: $control-h;
+  margin-bottom: $s2;
+}
+
+.toggleRow {
+  @include reset-button;
+  padding: 0 $s2;
+  border-radius: $radius-sm;
+  &:hover {
+    background: $surface-2;
+  }
+}
+
+.switch {
+  position: relative;
+  width: 32rem;
+  height: 18rem;
+  border-radius: 9rem;
+  background: $surface-3;
+  border: 1rem solid $line-strong;
+}
+
+.knob {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 6rem;
+  background: $text-2;
+}
+
+.switchOn {
+  background: $accent;
+  border-color: $accent;
+  .knob {
+    left: 16rem;
+    background: $on-accent;
+  }
+}
+
+// ---- Buttons ------------------------------------------------------------------------
+
+.button {
+  @include reset-button;
+  height: $control-h;
+  padding: 0 $s3;
+  border-radius: $radius-sm;
+  border: 1rem solid $line-strong;
+  background: $surface-2;
+  font-size: $text-sm;
+  &:hover {
+    background: $surface-3;
+  }
+}
+
+.primary {
+  border-color: $accent;
+  background: $accent;
+  color: $on-accent;
+  font-weight: bold;
+  &:hover {
+    border-color: $accent-strong;
+    background: $accent-strong;
+  }
+}
+
+.ghost {
+  border-color: $accent-line;
+  background: transparent;
+  color: $accent;
+  &:hover {
+    background: $accent-soft;
+  }
+}
+
+.wide {
+  width: 100%;
+  font-size: $text-md;
+}
+
+.smallButton {
+  @include reset-button;
+  width: $control-h-sm;
+  height: $control-h-sm;
+  border-radius: $radius-sm;
+  background: $surface-2;
+  font-size: $text-md;
+  &:hover {
+    background: $surface-3;
+  }
+}
+
+// ---- Stepper ------------------------------------------------------------------------
+
+.stepper {
+  @include row;
+  padding: 2rem;
+  border-radius: $radius-md;
+  background: $inset;
+}
+
+.stepperValue {
+  width: 92rem;
+  color: $accent;
+  font-size: $text-sm;
+  text-align: center;
+}
+
+// ---- Segmented ----------------------------------------------------------------------
+
+.segmented {
+  @include row;
+  width: 100%;
+  padding: 2rem;
+  border-radius: $radius-md;
+  background: $inset;
+}
+
+.segment {
+  @include reset-button;
+  flex: 1;
+  height: $control-h-sm;
+  margin: 0 1rem;
+  border-radius: $radius-sm;
+  color: $text-2;
+  font-size: $text-sm;
+  &:hover {
+    background: $surface-2;
+    color: $text;
+  }
+}
+
+.segmentOn {
+  background: $accent-soft;
+  color: $accent;
+  font-weight: bold;
+  &:hover {
+    background: $accent-soft;
+    color: $accent;
+  }
+}
+
+// ---- Slider -------------------------------------------------------------------------
+
+.sliderLine {
+  @include row;
+}
+
+.track {
+  position: relative;
+  flex: 1;
+  height: 18rem;
+  margin: 0 $s3;
+}
+
+.rail {
+  position: absolute;
+  top: 7rem;
+  left: 0;
+  width: 100%;
+  height: 4rem;
+  border-radius: 2rem;
+  background: $surface-3;
+}
+
+.fill {
+  position: absolute;
+  top: 7rem;
+  left: 0;
+  height: 4rem;
+  border-radius: 2rem;
+  background: $accent;
+}
+
+.thumb {
+  position: absolute;
+  top: 2rem;
+  width: 14rem;
+  height: 14rem;
+  margin-left: -7rem;
+  border-radius: 7rem;
+  background: $text;
+  border: 2rem solid $accent;
+}
+
+// ---- Text field ---------------------------------------------------------------------
+
+.fieldRow {
+  @include row;
+}
+
+.input {
+  flex: 1;
+  height: $control-h;
+  padding: 0 $s2;
+  margin-right: $s2;
+  border: 1rem solid $line-strong;
+  border-radius: $radius-sm;
+  background: $inset;
+  color: $text;
+  font-size: $text-sm;
+  &:focus {
+    border-color: $accent;
+  }
+}
+
+// ---- List ---------------------------------------------------------------------------
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin-top: $s2;
+  padding: 2rem;
+  border-radius: $radius-md;
+  background: $inset;
+}
+
+.listItem {
+  @include reset-button;
+  padding: 6rem $s2;
+  border-radius: $radius-sm;
+  font-size: $text-sm;
+  text-align: left;
+  &:hover {
+    background: $accent-soft;
+    color: $accent-strong;
+  }
+}
+
+// ---- Callout ------------------------------------------------------------------------
+
+.callout {
+  padding: $s2 $s3;
+  margin-bottom: $s2;
+  border-left: 3rem solid $warning;
+  border-radius: $radius-sm;
+  background: $warning-soft;
+}
+
+.calloutInfo {
+  border-left-color: $accent;
+  background: $info-soft;
+}
+
+.calloutText {
+  color: $text;
+  font-size: $text-sm;
+}
+
+.calloutActions {
+  @include row;
+  justify-content: flex-end;
+  margin-top: $s2;
+  .button {
+    margin-left: $s2;
+  }
+}
+
+// ---- Progress -----------------------------------------------------------------------
+
+.progress {
+  position: relative;
+  height: 3rem;
+  margin-bottom: $s2;
+  border-radius: 2rem;
+  background: $surface-2;
+}
+
+.progressFill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 2rem;
+  background: $accent;
+}
+
+.meta {
+  @include row;
+  justify-content: space-between;
+  color: $text-3;
+  font-size: $text-xs;
+}
+
+.disabled {
+  opacity: 0.4;
+}

@@ -61,7 +61,8 @@ namespace MapOverlay
     }
 
     // Places a map centred on (CenterLat, CenterLon) at world point (AnchorX, AnchorZ), turned
-    // clockwise by Rotation degrees. +X is east and +Z is north before rotating.
+    // clockwise by Rotation degrees and scaled by Scale (game metres per real metre, 1 = 1:1).
+    // +X is east and +Z is north before rotating.
     internal readonly struct MapFrame
     {
         public readonly double CenterLat;
@@ -72,9 +73,11 @@ namespace MapOverlay
         private readonly double m_PerLon;
         private readonly double m_Cos;
         private readonly double m_Sin;
+        public readonly double Scale;
 
-        public MapFrame(double lat, double lon, double anchorX, double anchorZ, double rotationDeg)
+        public MapFrame(double lat, double lon, double anchorX, double anchorZ, double rotationDeg, double scale)
         {
+            Scale = scale > 0 ? scale : 1.0;
             CenterLat = lat;
             CenterLon = lon;
             AnchorX = anchorX;
@@ -90,16 +93,16 @@ namespace MapOverlay
             double dLon = lon - CenterLon;
             if (dLon > 180.0) dLon -= 360.0;
             else if (dLon < -180.0) dLon += 360.0;
-            double east = dLon * m_PerLon;
-            double north = (lat - CenterLat) * m_PerLat;
+            double east = dLon * m_PerLon * Scale;
+            double north = (lat - CenterLat) * m_PerLat * Scale;
             x = AnchorX + east * m_Cos + north * m_Sin;
             z = AnchorZ - east * m_Sin + north * m_Cos;
         }
 
         public void ToGeo(double x, double z, out double lat, out double lon)
         {
-            double dx = x - AnchorX;
-            double dz = z - AnchorZ;
+            double dx = (x - AnchorX) / Scale;
+            double dz = (z - AnchorZ) / Scale;
             double east = dx * m_Cos - dz * m_Sin;
             double north = dx * m_Sin + dz * m_Cos;
             lat = GeoMath.ClampLatitude(CenterLat + north / m_PerLat);
