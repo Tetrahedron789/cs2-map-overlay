@@ -19,9 +19,14 @@ Shows a real-world map over the terrain, like tracing paper, to lay out cities t
 Open it with the button at the top left of the game. Map data © OpenStreetMap contributors.
 	</LongDescription>
 	<!--Thumbnail-->
-	<Thumbnail Value="Properties/Thumbnail.png" />
+	<Thumbnail Value="Properties/Thumbnail.jpg" />
 	<!--Screenshot, can be set multiple times-->
-	<Screenshot Value="" />
+	<Screenshot Value="Properties/Screenshots/1-trace.jpg" />
+	<Screenshot Value="Properties/Screenshots/2-terrain.jpg" />
+	<Screenshot Value="Properties/Screenshots/3-search.jpg" />
+	<Screenshot Value="Properties/Screenshots/4-place.jpg" />
+	<Screenshot Value="Properties/Screenshots/5-heightmap.jpg" />
+	<Screenshot Value="Properties/Screenshots/6-options.jpg" />
 	<!--Tag, can be set multiple times-->
 	<Tag Value="" />
 	<!--Link to the forum post where the mod can be discussed-->
