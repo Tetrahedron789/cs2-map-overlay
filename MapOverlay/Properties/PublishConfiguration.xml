@@ -4,11 +4,19 @@
 	<!--Name of the mod to display to players-->
 	<DisplayName Value="Map Overlay" />
 	<!--Short description of the mod-->
-	<ShortDescription Value="Real-world OpenStreetMap layout as a 1:1 tracing overlay." />
+	<ShortDescription Value="Real-world maps over the terrain as a tracing overlay, at 1:1 or a scale that matches your heightmap." />
 	<!--Long description of the mod. Single line or multi line. Supports minimal markdown subset-->
-	
+
 	<LongDescription>
-Shows OpenStreetMap over the terrain at real-world scale (1:1), like tracing paper. Search for a place, move and rotate the map, and set its opacity from an in-game panel. Map data © OpenStreetMap contributors.
+Shows a real-world map over the terrain, like tracing paper, to lay out cities that follow real streets. It does not change your save.
+
+- Search for a place, an address, coordinates or a Google Maps / OpenStreetMap link.
+- Move and rotate the map by dragging it on the ground, with the arrows or with fine rotation steps.
+- Map scale from 25% to 200%. Enter the Terraining map size to match a heightmap, and put the map centre on the city centre with one button.
+- Map styles: OpenStreetMap, Topographic (OpenTopoMap, with contour lines) or a custom tile URL with your own key.
+- Opacity, on top of everything or laid on the terrain, area size or the whole map.
+
+Open it with the button at the top left of the game. Map data © OpenStreetMap contributors.
 	</LongDescription>
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.png" />
@@ -21,17 +29,17 @@ Shows OpenStreetMap over the terrain at real-world scale (1:1), like tracing pap
 	<!--Version of the mod-->
 	<ModVersion Value="0.2.0" />
 	<!--Recommended version of the base game to use the mod-->
-	<GameVersion Value="1.0.*" />
+	<GameVersion Value="1.6.*" />
 	<!--Dependency for the mod, can be set multiple times-->
 	<Dependency Id="" />
 	<!--Required DLC, can be set multiple times. Supported values are "Landmark Buildings", "San Fransisco Set", "Beach Properties", "Urban Promenades", "Modern Architecture"-->
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
-	<ChangeLog Value="" />
+	<ChangeLog Value="0.2.0 beta: drag tool, adjustable scale for heightmaps, map styles, new panel, safer whole-map loading." />
 	<!--<ChangeLog>
 	</ChangeLog>-->
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme"-->
 	<ExternalLink Type="" Url="" />
 	<!--Supported values Public, Private, Unlisted-->
-	<AccessLevel Value="Public" />
+	<AccessLevel Value="Private" />
 </Publish>
