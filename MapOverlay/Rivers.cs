@@ -8,7 +8,8 @@ namespace MapOverlay
     // rules decide how it looks and behaves in the game: a rounded path, a width that changes
     // gradually, a rounded bed, and banks that always stand above the water, raising the ground
     // where needed. Heights are worked out for the whole network at once, from where it flows
-    // out, so pieces meet and nothing dams a river. Sources follow the river's drop.
+    // out, so pieces meet and nothing dams a river. The water itself is placed directly
+    // (TerrainBuilder); sources only hold its level, evenly spaced and always inside the river.
     // Stretches at sea level need no sources: the sea fills them.
     internal static class Rivers
     {
@@ -33,13 +34,10 @@ namespace MapOverlay
         private const int kProfileWindow = 8;
         private const int kProfileSmooth = 20;
         private const int kWidthWindow = 12;
-        private const float kSourceSpacing = 1200f; // sources along a river, like a map maker places them by hand
-        private const float kSourceDrop = 40f;    // real metres of descent: steep rivers get extra sources
-        private const float kSourceMinSpacing = 800f;
-        private const float kSourceRadius = 1.5f; // of the width: it only fills what is below its level
-        private const float kSourceSpill = 0.5f;  // metres its level may stand above the river at its edge
-        private const float kTailSpacing = 400f;  // a last source holds the river where it leaves the map
+        private const float kSourceSpacing = 1200f; // the one value to tune if rivers do not stay full
         private const float kNoSourceBelow = 0.5f; // a surface this low is the sea's
+        private const float kMinSourceRadius = 10f;
+        private const int kProbeEvery = 20;       // samples: about every 240 m
         private const int kMaxSources = 150;
         private const float kMinLength = 400f;    // shorter runs are left out
         private const double kSnap = 6.0;         // tile pieces that end this close are one river
@@ -84,7 +82,6 @@ namespace MapOverlay
                 carve[i] = float.MaxValue;
                 raise[i] = float.MinValue;
             }
-            var checks = new List<BankCheck>();
             foreach (var (points, runWidth) in runs)
             {
                 int first = nodes[NodeKey(points[0])];
@@ -93,7 +90,7 @@ namespace MapOverlay
                 if (network[first].Level < network[nodes[NodeKey(points[points.Count - 1])]].Level) points.Reverse();
                 var levels = new float[points.Count];
                 for (int i = 0; i < points.Count; i++) levels[i] = network[nodes[NodeKey(points[i])]].Level;
-                Plan(points, runWidth, levels, heights, res, size, result, blocked, ref sources, carve, raise, checks);
+                Plan(points, runWidth, levels, heights, res, size, result, blocked, ref sources, carve, raise);
                 result.RiverCount++;
             }
 
@@ -116,28 +113,7 @@ namespace MapOverlay
                     heights[i] = h;
                 }
             });
-            Mod.log.Info($"Rivers: {result.RiverCount} river(s), {sources} source(s), banks below the water at {LowBanks(checks, heights, res, size):F1}% of river points.");
-        }
-
-        private struct BankCheck
-        {
-            public double X, Z, NormalX, NormalZ, Half;
-            public float Surface;
-        }
-
-        // Share of points where the ground just outside the channel is lower than the water.
-        private static double LowBanks(List<BankCheck> checks, float[] heights, int res, double size)
-        {
-            if (checks.Count == 0) return 0;
-            int low = 0;
-            foreach (var p in checks)
-            {
-                double reach = p.Half + 2;
-                float a = HeightAt(heights, res, size, (p.X + p.NormalX * reach, p.Z + p.NormalZ * reach));
-                float b = HeightAt(heights, res, size, (p.X - p.NormalX * reach, p.Z - p.NormalZ * reach));
-                if (a < p.Surface || b < p.Surface) low++;
-            }
-            return 100.0 * low / checks.Count;
+            Mod.log.Info($"Rivers: {result.RiverCount} river(s), {sources} source(s).");
         }
 
         // Moving average with the ends fixed: rounds corners and zigzags.
@@ -416,7 +392,7 @@ namespace MapOverlay
         }
 
         private static void Plan(List<(double X, double Z)> run, float width, float[] levels, float[] heights, int res, double size,
-            Lakes.Result result, bool[] blocked, ref int sources, float[] carve, float[] raise, List<BankCheck> checks)
+            Lakes.Result result, bool[] blocked, ref int sources, float[] carve, float[] raise)
         {
             var raw = new float[run.Count];
             for (int i = 0; i < run.Count; i++) raw[i] = HeightAt(heights, res, size, run[i]);
@@ -438,7 +414,6 @@ namespace MapOverlay
 
             double px = size / res;
             double sinceSource = kSourceSpacing;
-            float lastSource = float.MaxValue;
             for (int i = 0; i < run.Count; i++)
             {
                 var p = run[i];
@@ -448,6 +423,9 @@ namespace MapOverlay
                 float here = mapped[i];
                 float depth = Math.Max(kMinDepth, Math.Min(kMaxDepth, kMinDepth + here / 100f));
                 float surface = profile[i] - kBelowGround;
+                bool atSea = result.HasSea && surface <= kNoSourceBelow;
+                if (i % kProbeEvery == 0 && !atSea)
+                    result.Probes.Add(new Lakes.Probe { X = p.X, Z = p.Z, Width = here, Surface = surface });
                 float bed = surface - depth, crest = surface + kFreeboard;
                 float half = here * kChannelScale / 2f;
                 // Far enough to reach the ground where the river runs below it, so no cliff is left.
@@ -495,43 +473,20 @@ namespace MapOverlay
                     for (int c = Math.Max(0, mc - mark); c <= Math.Min(n - 1, mc + mark); c++)
                         blocked[r * n + c] = true;
 
-                int cellHere = CellIndex(p, size, n);
-                bool inSea = result.Sea != null && cellHere >= 0 && result.Sea[cellHere]; // open water has no banks to check
-                if (!inSea && i % 4 == 0 && i + 1 < run.Count && i > 0)
-                {
-                    double dx = run[i + 1].X - run[i - 1].X, dz = run[i + 1].Z - run[i - 1].Z, length = Math.Sqrt(dx * dx + dz * dz);
-                    if (length > 0) checks.Add(new BankCheck { X = p.X, Z = p.Z, NormalX = -dz / length, NormalZ = dx / length, Half = half, Surface = surface });
-                }
-
-                // One at the head, then by how much the river has dropped, or how far it has run.
-                bool due = sinceSource >= kSourceSpacing || (sinceSource >= kSourceMinSpacing && lastSource - surface >= kSourceDrop)
-                    || (i == run.Count - 1 && sinceSource >= kTailSpacing);
-                if (due && sources < kMaxSources && !(result.HasSea && surface <= kNoSourceBelow))
+                if (sinceSource >= kSourceSpacing && sources < kMaxSources && !(result.HasSea && surface <= kNoSourceBelow))
                 {
                     sinceSource = 0;
-                    lastSource = surface;
                     sources++;
                     result.Sources.Add(new Lakes.Source
                     {
                         X = p.X,
                         Z = p.Z,
-                        Radius = SourceRadius(here, profile, i),
+                        Radius = Math.Max(kMinSourceRadius, here / 2f), // fits inside the river
                         SurfaceReal = surface,
                         BedReal = bed,
                     });
                 }
             }
-        }
-
-        // Wide enough to feed the river, but on a slope its level must not top the banks downstream.
-        private static float SourceRadius(float width, float[] profile, int i)
-        {
-            const int span = 20;
-            int a = Math.Max(0, i - span), b = Math.Min(profile.Length - 1, i + span);
-            float slope = b > a ? Math.Abs(profile[a] - profile[b]) / ((b - a) * kStep) : 0f;
-            float radius = width * kSourceRadius;
-            if (slope > 0.0001f) radius = Math.Min(radius, kSourceSpill / slope);
-            return Math.Max(12f, Math.Min(radius, 600f));
         }
 
         private static int CellIndex((double X, double Z) p, double size, int n)

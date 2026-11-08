@@ -18,9 +18,19 @@ namespace MapOverlay
             public float BedReal;      // real metres
         }
 
+        // A place to compare the water the simulation holds with the water that was planned.
+        public struct Probe
+        {
+            public double X, Z;
+            public float Width;
+            public float Surface;      // real metres
+            public bool Lake;
+        }
+
         public sealed class Result
         {
             public readonly List<Source> Sources = new List<Source>();
+            public readonly List<Probe> Probes = new List<Probe>();
             public int LakeCount;
             public int RiverCount;
             public int Cells;                // side of the grids below
@@ -225,6 +235,7 @@ namespace MapOverlay
                         SurfaceReal = surfaces[lake],
                         BedReal = HeightAt(heights, res, size, x, z),
                     });
+                    result.Probes.Add(new Probe { X = x, Z = z, Width = radius * 2f, Surface = surfaces[lake], Lake = true });
                     placed++;
                     int reach = (int)Math.Ceiling(radius * kCoverage / cell);
                     int r0 = c / n, c0 = c % n;

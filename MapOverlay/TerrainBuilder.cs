@@ -37,6 +37,10 @@ namespace MapOverlay
         private const float kWorldSeaFloor = -4f;
         private const int kShoreBlur = 3;              // pixels
         private const int kSeedDelayFrames = 3;
+        private static readonly float[] kProbeSeconds = { 60f, 180f }; // of running simulation
+        private const float kDryDepth = 0.2f;
+        private const int kSettleSpeed = 4;
+        private const float kSettleSeconds = 12f;
 
         private sealed class Layer
         {
@@ -73,10 +77,22 @@ namespace MapOverlay
         private Lakes.Result m_Lakes;
         private float[] m_SeedSurface, m_SeedGround;
         private int m_SeedFrame;
+        private List<WaterProbe> m_Probes;
+        private float m_ProbeClock;      // seconds of running simulation since the water was placed
+        private int m_ProbeNext;
+        private float m_SettleLeft;      // seconds of running simulation left at the faster water speed
+        private int m_SettleRestore;
         private List<Trees.Item> m_TreePlan;
         private int m_TreesPlaced;
         private readonly List<TreePrefab> m_TreePrefabs = new List<TreePrefab>();
         private float m_Baseline, m_OffsetY;
+
+        private struct WaterProbe
+        {
+            public float3 Position;
+            public float Width, Planned;
+            public bool Lake;
+        }
 
         private struct TreePrefab
         {
@@ -147,6 +163,7 @@ namespace MapOverlay
         // What it reports belongs to the map it was built on: a new map or project starts clean.
         public void Forget()
         {
+            EndSettling();
             Reset();
             m_Finished = false;
             Status = State.Idle;
@@ -162,6 +179,7 @@ namespace MapOverlay
 
         public void Dispose()
         {
+            EndSettling();
             Cancel();
             if (m_Decoder != null) UnityEngine.Object.Destroy(m_Decoder);
             m_Decoder = null;
@@ -174,6 +192,7 @@ namespace MapOverlay
             m_Task = null;
             m_Lakes = null;
             m_SeedSurface = m_SeedGround = null;
+            m_Probes = null;
             m_TreePlan = null;
             m_TreesPlaced = 0;
             m_WaterFailed = false;
@@ -221,6 +240,8 @@ namespace MapOverlay
             try
             {
                 if (m_SeedSurface != null && UnityEngine.Time.frameCount >= m_SeedFrame) SeedWater();
+                if (m_SettleLeft > 0f) Settle();
+                if (m_Probes != null) TickProbes();
                 if (Status == State.Downloading) TickDownloads();
                 else if (Status == State.Planting) PlantBatch();
                 else if (Status == State.Building && m_Task != null && m_Task.IsCompleted)
@@ -507,6 +528,7 @@ namespace MapOverlay
             // The water goes in a few frames later, once the terrain has taken the new heights.
             m_SeedSurface = m_Lakes != null ? m_Lakes.Surface : null;
             m_SeedGround = m_Layers[0].Heights;
+            if (m_Lakes != null && m_Lakes.Processed) PlanProbes(m_Lakes, m_SeedGround, m_Layers[0].Size, baseline, terrain.positionOffset.y);
             m_SeedFrame = UnityEngine.Time.frameCount + kSeedDelayFrames;
             if (m_SeedSurface == null) water?.UpdateSeaLevel();
             m_Layers.Clear();
@@ -660,6 +682,68 @@ namespace MapOverlay
             Mod.log.Info($"Terrain: {LakeCount} lake(s), {SourceCount} water source(s).");
         }
 
+        private void PlanProbes(Lakes.Result lakes, float[] ground, double size, float baseline, float offsetY)
+        {
+            m_Probes = new List<WaterProbe>(lakes.Probes.Count);
+            m_ProbeClock = 0f;
+            m_ProbeNext = 0;
+            double px = size / kRes;
+            foreach (var p in lakes.Probes)
+            {
+                int c = (int)((p.X + size / 2) / px), r = (int)((p.Z + size / 2) / px);
+                if (c < 0 || r < 0 || c >= kRes || r >= kRes) continue;
+                float h = ground[r * kRes + c];
+                if (p.Surface <= h) continue;
+                m_Probes.Add(new WaterProbe
+                {
+                    Position = new float3((float)p.X, h - baseline + offsetY, (float)p.Z),
+                    Width = p.Width,
+                    Planned = p.Surface - h,
+                    Lake = p.Lake,
+                });
+            }
+        }
+
+        // Writes to the log how much of the planned water the simulation really holds.
+        private void TickProbes()
+        {
+            var world = World.DefaultGameObjectInjectionWorld;
+            var water = world?.GetExistingSystemManaged<WaterSystem>();
+            var simulation = world?.GetExistingSystemManaged<SimulationSystem>();
+            if (water == null || simulation == null || !InEditor || m_SeedSurface != null) return;
+            if (simulation.selectedSpeed <= 0f) return;
+            m_ProbeClock += UnityEngine.Time.unscaledDeltaTime;
+            if (m_ProbeClock < kProbeSeconds[m_ProbeNext]) return;
+
+            var surface = water.GetSurfaceData(out var deps);
+            deps.Complete();
+            var depths = new float[m_Probes.Count];
+            for (int i = 0; i < depths.Length; i++) depths[i] = WaterUtils.SampleDepth(ref surface, m_Probes[i].Position);
+            ReportProbes("lakes", p => p.Lake, depths);
+            ReportProbes("rivers under 40 m wide", p => !p.Lake && p.Width < 40f, depths);
+            ReportProbes("rivers 40 to 120 m wide", p => !p.Lake && p.Width >= 40f && p.Width < 120f, depths);
+            ReportProbes("rivers over 120 m wide", p => !p.Lake && p.Width >= 120f, depths);
+            if (++m_ProbeNext >= kProbeSeconds.Length) m_Probes = null;
+        }
+
+        private void ReportProbes(string name, Func<WaterProbe, bool> filter, float[] depths)
+        {
+            var planned = new List<float>();
+            var real = new List<float>();
+            int dry = 0;
+            for (int i = 0; i < depths.Length; i++)
+            {
+                if (!filter(m_Probes[i])) continue;
+                planned.Add(m_Probes[i].Planned);
+                real.Add(depths[i]);
+                if (depths[i] < kDryDepth) dry++;
+            }
+            if (real.Count == 0) return;
+            planned.Sort();
+            real.Sort();
+            Mod.log.Info($"Water check at {kProbeSeconds[m_ProbeNext]:F0} s, {name}: planned {planned[planned.Count / 2]:F1} m, real {real[real.Count / 2]:F1} m, dry at {dry} of {real.Count} points.");
+        }
+
         // Puts the planned water straight into the simulation, so rivers and lakes are full at
         // once instead of filling from their sources. The sea is left to the game. If this ever
         // fails the sources still fill everything, only slowly.
@@ -726,6 +810,35 @@ namespace MapOverlay
                 if (texture != null) UnityEngine.Object.Destroy(texture);
             }
             water.UpdateSeaLevel(); // brings the sea back over the new ground
+            m_SettleRestore = Math.Max(1, water.WaterSimSpeed);
+            m_SettleLeft = kSettleSeconds;
+        }
+
+        // Runs the water faster for a moment while the simulation plays, so it settles soon. The
+        // game drops the speed to 0 while terrain changes: that is left alone.
+        private void Settle()
+        {
+            var world = World.DefaultGameObjectInjectionWorld;
+            var water = world?.GetExistingSystemManaged<WaterSystem>();
+            var simulation = world?.GetExistingSystemManaged<SimulationSystem>();
+            if (water == null || simulation == null || !InEditor)
+            {
+                EndSettling();
+                return;
+            }
+            if (simulation.selectedSpeed <= 0f || water.WaterSimSpeed == 0) return;
+            water.WaterSimSpeed = kSettleSpeed;
+            m_SettleLeft -= UnityEngine.Time.unscaledDeltaTime;
+            if (m_SettleLeft <= 0f) EndSettling();
+        }
+
+        private void EndSettling()
+        {
+            if (m_SettleRestore == 0) return;
+            var water = World.DefaultGameObjectInjectionWorld?.GetExistingSystemManaged<WaterSystem>();
+            if (water != null && water.WaterSimSpeed == kSettleSpeed) water.WaterSimSpeed = m_SettleRestore;
+            m_SettleRestore = 0;
+            m_SettleLeft = 0f;
         }
 
         private static Texture2D ToTexture(float[] heights, float baseline, float scale)

@@ -637,6 +637,9 @@ const Terrain = () => {
           {text("TerrainGeneratedBefore", "This project generated terrain on {date}. If this map is not that one, it does not have it: open the saved map or generate again.").replace("{date}", generatedOn)}
         </Hint>
       )}
+      {state === b.TerrainState.Done && (
+        <Hint>{text("TerrainPausedHint", "Generated while paused, the water can look wrong on dry ground until you press play.")}</Hint>
+      )}
       {state === b.TerrainState.Done && !locked && <Hint>{text("TerrainLockHint", "Terrain and map now match. Lock the project to keep them that way.")}</Hint>}
       {confirming ? (
         <Callout
