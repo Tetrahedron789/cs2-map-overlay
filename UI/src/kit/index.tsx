@@ -1,6 +1,6 @@
 // A small UI kit for in-game mod panels: one look shared by every mod that copies this
 // folder. Only plain React and the kit's own styles; colours live in _tokens.scss.
-import { CSSProperties, ReactNode, useEffect, useRef, useState } from "react";
+import React, { CSSProperties, ReactNode, useEffect, useRef, useState } from "react";
 import s from "./kit.module.scss";
 
 export const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boolean).join(" ");
@@ -17,36 +17,77 @@ interface ModPanelProps {
   closeLabel?: string;
   style?: CSSProperties;
   bodyMaxHeight?: string;
+  dragKey?: string; // panels with the same key share where they were dragged to
   children: ReactNode;
 }
 
-export const ModPanel = ({ icon, title, subtitle, actions, footer, onClose, style, bodyMaxHeight, children }: ModPanelProps) => (
-  <div className={s.panel} style={style}>
-    <div className={s.header}>
-      <div className={s.badge}>
-        <img className={s.badgeIcon} src={icon} />
+// Where panels were dragged to, kept while they are closed (for this game session).
+const panelOffsets = new Map<string, { x: number; y: number }>();
+const kKeepOnScreen = 44; // px of the panel's top that stay visible at the bottom of the screen
+
+export const ModPanel = ({ icon, title, subtitle, actions, footer, onClose, style, bodyMaxHeight, dragKey, children }: ModPanelProps) => {
+  const key = dragKey ?? title;
+  const [offset, setOffset] = useState(panelOffsets.get(key) ?? { x: 0, y: 0 });
+  const panelRef = useRef<HTMLDivElement>(null);
+  const stopDrag = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => stopDrag.current?.(), []);
+
+  // Dragged by the icon and title; the header's buttons keep working as usual.
+  const startDrag = (e: React.MouseEvent) => {
+    if (e.button !== 0 || !panelRef.current) return;
+    e.preventDefault();
+    const rect = panelRef.current.getBoundingClientRect();
+    const startX = e.clientX, startY = e.clientY, from = offset;
+    const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(high, v));
+    const move = (ev: MouseEvent) => {
+      const next = {
+        x: from.x + clamp(ev.clientX - startX, -rect.left, window.innerWidth - rect.right),
+        y: from.y + clamp(ev.clientY - startY, -rect.top, window.innerHeight - rect.top - kKeepOnScreen),
+      };
+      panelOffsets.set(key, next);
+      setOffset(next);
+    };
+    const up = () => stopDrag.current?.();
+    stopDrag.current = () => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      stopDrag.current = null;
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  };
+
+  return (
+    <div ref={panelRef} className={s.panel} style={{ ...style, transform: `translate(${offset.x}px, ${offset.y}px)` }}>
+      <div className={s.header}>
+        <div className={s.dragHandle} onMouseDown={startDrag}>
+          <div className={s.badge}>
+            <img className={s.badgeIcon} src={icon} />
+          </div>
+          <div className={s.heading}>
+            <div className={s.title}>{title}</div>
+            {subtitle && <div className={s.subtitle}>{subtitle}</div>}
+          </div>
+        </div>
+        <div className={s.headerActions}>
+          {actions}
+          {/* Drawn with CSS: the game's UI font has no ✕ glyph. */}
+          <button className={s.iconButton} onClick={onClose}>
+            <span className={s.closeIcon}>
+              <span className={s.closeBar} />
+              <span className={cx(s.closeBar, s.closeBarCross)} />
+            </span>
+          </button>
+        </div>
       </div>
-      <div className={s.heading}>
-        <div className={s.title}>{title}</div>
-        {subtitle && <div className={s.subtitle}>{subtitle}</div>}
+      <div className={s.body} style={bodyMaxHeight ? { maxHeight: bodyMaxHeight } : undefined}>
+        {children}
       </div>
-      <div className={s.headerActions}>
-        {actions}
-        {/* Drawn with CSS: the game's UI font has no ✕ glyph. */}
-        <button className={s.iconButton} onClick={onClose}>
-          <span className={s.closeIcon}>
-            <span className={s.closeBar} />
-            <span className={cx(s.closeBar, s.closeBarCross)} />
-          </span>
-        </button>
-      </div>
+      {footer && <div className={s.footer}>{footer}</div>}
     </div>
-    <div className={s.body} style={bodyMaxHeight ? { maxHeight: bodyMaxHeight } : undefined}>
-      {children}
-    </div>
-    {footer && <div className={s.footer}>{footer}</div>}
-  </div>
-);
+  );
+};
 
 // ---- Tabs ---------------------------------------------------------------------------
 

@@ -43,7 +43,7 @@ export const ToolbarButton = () => {
     <FloatingButton
       src={icon}
       selected={open}
-      tooltipLabel={text("Title", "Map Overlay")}
+      tooltipLabel={text("Title", "Real World Maps")}
       onSelect={() => b.panelStore.set(!open)}
     />
   );
@@ -801,10 +801,11 @@ export const OverlayPanel = () => {
     return (
       <ModPanel
         icon={icon}
-        title={text("Title", "Map Overlay")}
+        title={text("Title", "Real World Maps")}
         subtitle={text("ProjectsSubtitle", "Real maps for your cities")}
         onClose={() => b.panelStore.set(false)}
         style={style}
+        dragKey={inEditor ? "editor" : "game"}
         bodyMaxHeight="700rem"
       >
         <ProjectHome busy={busy} />
@@ -815,7 +816,7 @@ export const OverlayPanel = () => {
   return (
     <ModPanel
       icon={icon}
-      title={text("Title", "Map Overlay")}
+      title={text("Title", "Real World Maps")}
       subtitle={`${lat.toFixed(5)}, ${lon.toFixed(5)}`}
       actions={
         <Tooltip tooltip={text("Visible", "Show map")}>
@@ -827,6 +828,7 @@ export const OverlayPanel = () => {
       footer={<Status />}
       onClose={() => b.panelStore.set(false)}
       style={style}
+      dragKey={inEditor ? "editor" : "game"}
       bodyMaxHeight="700rem"
     >
       <ProjectBar busy={busy} />
@@ -865,7 +867,7 @@ export const withEditorButton =
     return (
       <div className={cx(className, styles.toolbarHost)}>
         <Toolbar {...props} />
-        <Tooltip tooltip={text("Title", "Map Overlay")}>
+        <Tooltip tooltip={text("Title", "Real World Maps")}>
           <button className={cx(theme.button, styles.toolbarButton, open && "selected")} onClick={() => b.panelStore.set(!open)}>
             <img className={styles.toolbarIcon} src={icon} />
           </button>

@@ -27,6 +27,12 @@
   background-color: $header-bg;
 }
 
+.dragHandle {
+  @include row;
+  flex: 1;
+  cursor: move;
+}
+
 .badge {
   @include row;
   justify-content: center;

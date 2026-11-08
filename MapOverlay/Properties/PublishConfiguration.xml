@@ -2,37 +2,68 @@
 	<!--Id must be set in order to update existed mod. it is not required for publishing mod for the first time-->
 	<ModId Value="166606" />
 	<!--Name of the mod to display to players-->
-	<DisplayName Value="Map Overlay" />
+	<DisplayName Value="Real World Maps - Overlay &amp; Builder" />
 	<!--Short description of the mod-->
-	<ShortDescription Value="Real-world maps over the terrain as a tracing overlay, at 1:1 or a scale that matches your heightmap." />
+	<ShortDescription Value="Bring real places into your game: trace any city with a live map, and build maps with real terrain, water and trees in the editor." />
 	<!--Long description of the mod. Single line or multi line. Supports minimal markdown subset-->
 
 	<LongDescription>
-Shows a real-world map over the terrain, like tracing paper, to lay out cities that follow real streets. It does not change your save.
+Real World Maps brings real places into Cities: Skylines II. Trace any city with a real map laid over the ground, and build the map itself from real elevation, water and trees, right inside the Map Editor. No external heightmap tools needed.
 
+Formerly Map Overlay. This is a beta, and generated water can still need some touch-ups by hand.
+
+**Projects**
+- One project per city. Create, load, save and delete them.
+- Each project remembers where its map sits and how it is shown.
+- Lock a project's map once it is in place, so it cannot shift by accident.
+
+**Overlay (Map Editor and your city)**
+- Shows a real map over the terrain, like tracing paper, without changing your save.
 - Search for a place, an address, coordinates or a Google Maps / OpenStreetMap link.
 - Move and rotate the map by dragging it on the ground, with the arrows or with fine rotation steps.
-- Map scale from 25% to 200%. Enter the Terraining map size to match a heightmap, and put the map centre on the city centre with one button.
-- Map styles: OpenStreetMap, Topographic (OpenTopoMap, with contour lines) or a custom tile URL with your own key.
+- Map scale from 25% to 200%, including the Terraining map size to match a heightmap.
+- Map styles: OpenStreetMap, Topographic or a custom tile URL with your own key.
 - Opacity, on top of everything or laid on the terrain, area size or the whole map.
 
-Open it with the button at the top left of the game. Map data © OpenStreetMap contributors.
+**Terrain (Map Editor only)**
+- Generates the playable area and the world map from real elevation, framed exactly like your Overlay.
+- Sea, lakes, rivers and canals where they really are, with the water already in place when it finishes.
+- Terrain smoothing (Low, Medium, High) for clean, natural-looking ground.
+- Trees where the land cover says there is forest, with three densities.
+- Water sources are placed for you, inside the water.
+
+**Good to know**
+- Generating terrain replaces the terrain, trees and water sources of the current map, and cannot be undone. Save first.
+- Terrain is locked outside the Map Editor, because it would damage a city in progress.
+- It needs an internet connection to download the map data.
+- Tree species are a general mix, not chosen by climate.
+- The interface is in English.
+
+Open it with the button at the top left of a city, or in the row of tools at the bottom of the Map Editor.
+
+**Data and credits**
+- Maps and water: © OpenStreetMap contributors (ODbL), with vector tiles by OpenFreeMap and © OpenMapTiles.
+- Topographic map style: © OpenTopoMap (CC-BY-SA).
+- Search: Nominatim (OpenStreetMap) and Photon (komoot).
+- Trees: © ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium (CC BY 4.0).
+- Elevation: Terrain Tiles on AWS (Mapzen). ArcticDEM terrain data DEM(s) were created from DigitalGlobe, Inc., imagery and funded under National Science Foundation awards 1043681, 1559691, and 1542736; Australia terrain data © Commonwealth of Australia (Geoscience Australia) 2017; Austria terrain data © offene Daten Österreichs – Digitales Geländemodell (DGM) Österreich; Canada terrain data contains information licensed under the Open Government Licence – Canada; Europe terrain data produced using Copernicus data and information funded by the European Union - EU-DEM layers; Global ETOPO1 terrain data U.S. National Oceanic and Atmospheric Administration; Mexico terrain data source: INEGI, Continental relief, 2016; New Zealand terrain data Copyright 2011 Crown copyright (c) Land Information New Zealand and the New Zealand Government (All rights reserved); Norway terrain data © Kartverket; United Kingdom terrain data © Environment Agency copyright and/or database right 2015. All rights reserved; United States 3DEP (formerly NED) and global GMTED2010 and SRTM terrain data courtesy of the U.S. Geological Survey.
 	</LongDescription>
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.jpg" />
 	<!--Screenshot, can be set multiple times-->
-	<Screenshot Value="Properties/Screenshots/1-trace.jpg" />
+	<Screenshot Value="Properties/Screenshots/1-overlay.jpg" />
 	<Screenshot Value="Properties/Screenshots/2-terrain.jpg" />
-	<Screenshot Value="Properties/Screenshots/3-search.jpg" />
-	<Screenshot Value="Properties/Screenshots/4-place.jpg" />
-	<Screenshot Value="Properties/Screenshots/5-heightmap.jpg" />
-	<Screenshot Value="Properties/Screenshots/6-options.jpg" />
+	<Screenshot Value="Properties/Screenshots/3-whole-map.jpg" />
+	<Screenshot Value="Properties/Screenshots/4-water.jpg" />
+	<Screenshot Value="Properties/Screenshots/5-on-the-ground.jpg" />
+	<Screenshot Value="Properties/Screenshots/6-sources.jpg" />
+	<Screenshot Value="Properties/Screenshots/7-panels.jpg" />
 	<!--Tag, can be set multiple times-->
 	<Tag Value="" />
 	<!--Link to the forum post where the mod can be discussed-->
 	<ForumLink Value="" />
 	<!--Version of the mod-->
-	<ModVersion Value="0.2.0" />
+	<ModVersion Value="0.3.0" />
 	<!--Recommended version of the base game to use the mod-->
 	<GameVersion Value="1.6.*" />
 	<!--Dependency for the mod, can be set multiple times-->
@@ -40,9 +71,15 @@ Open it with the button at the top left of the game. Map data © OpenStreetMap c
 	<!--Required DLC, can be set multiple times. Supported values are "Landmark Buildings", "San Fransisco Set", "Beach Properties", "Urban Promenades", "Modern Architecture"-->
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset-->
-	<ChangeLog Value="0.2.0 beta: drag tool, adjustable scale for heightmaps, map styles, new panel, safer whole-map loading." />
-	<!--<ChangeLog>
-	</ChangeLog>-->
+	<ChangeLog>
+0.3.0 beta: Map Overlay is now Real World Maps.
+- New: generate terrain in the Map Editor from real elevation, with sea, lakes, rivers, canals and trees.
+- New: water is placed as soon as the terrain finishes, so there is no long wait for it to fill.
+- New: projects, one per city, with a lock to keep the map in place.
+- New: separate Overlay and Terrain tabs. Terrain only works in the Map Editor.
+- New: button in the Map Editor's row of tools, and a panel you can drag anywhere.
+- Changed: the panel now follows the look of the game.
+	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme"-->
 	<ExternalLink Type="" Url="" />
 	<!--Supported values Public, Private, Unlisted-->
