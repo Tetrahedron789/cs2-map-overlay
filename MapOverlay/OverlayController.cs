@@ -86,6 +86,9 @@ namespace MapOverlay
         private bool m_MaterialOnTop;
 
         internal Geocoder Geocoder { get; private set; }
+        internal TerrainBuilder Terrain { get; private set; }
+        internal ProjectStore Projects { get; private set; }
+        internal bool Locked => Projects != null && Projects.Locked;
         internal int TilesTotal => m_TileList.Count;
         internal int TilesReady { get; private set; }
         internal int TilesFailed { get; private set; }
@@ -181,6 +184,8 @@ namespace MapOverlay
         {
             m_Setting = setting;
             Geocoder = new Geocoder(this);
+            Terrain = new TerrainBuilder();
+            Projects = new ProjectStore(setting);
             TileCache.RemoveLegacyCache();
             m_Root = new GameObject("MapOverlayTiles") { hideFlags = HideFlags.HideAndDontSave };
             DontDestroyOnLoad(m_Root);
@@ -193,7 +198,9 @@ namespace MapOverlay
         public void Shutdown()
         {
             CancelDownloads();
+            Projects?.Close();
             Geocoder?.Dispose();
+            Terrain?.Dispose();
             ClearTiles();
             if (m_Root != null) Destroy(m_Root);
             if (m_DarkenMaterial != null) Destroy(m_DarkenMaterial);
@@ -206,6 +213,14 @@ namespace MapOverlay
             try
             {
                 Geocoder.Tick();
+                Terrain.Tick();
+                if (Terrain.ConsumeFinished()) Projects.MarkTerrainGenerated();
+                // The Options menu also has a scale slider; a locked map ignores it.
+                if (Locked && m_Setting.ScalePercent != Projects.Active.ScalePercent)
+                {
+                    m_Setting.ScalePercent = Projects.Active.ScalePercent;
+                    m_Setting.ApplyAndSave();
+                }
                 if (TileCache.ConsumeClearRequest())
                 {
                     ClearTiles();
@@ -215,7 +230,7 @@ namespace MapOverlay
                 string template = TileSources.Template(m_Setting);
                 if (!m_ServerSet || template != m_Template) ChangeServer(template);
 
-                bool active = m_Setting.Visible && m_Shader != null && m_Template != null && GameManager.instance != null
+                bool active = Projects.Active != null && m_Setting.Visible && m_Shader != null && m_Template != null && GameManager.instance != null
                     && GameManager.instance.gameMode.IsGameOrEditor();
                 if (m_Root.activeSelf != active) m_Root.SetActive(active);
                 // Downloads in flight finish even when hidden, but nothing new starts.
@@ -233,6 +248,51 @@ namespace MapOverlay
                 if (!m_LoggedUpdateError) Mod.log.Error(ex, "Overlay update failed.");
                 m_LoggedUpdateError = true;
             }
+        }
+
+        // Generates the editor terrain from real elevation, framed like the overlay.
+        public void BuildTerrain(int options)
+        {
+            if (Projects.Active != null) Terrain.Start(CurrentFrame(), options);
+        }
+
+        // ---- Projects ----------------------------------------------------------------------
+
+        // A map just loaded: nothing from the last one carries over, and what was open is kept.
+        internal void OnMapLoaded()
+        {
+            Projects.Close();
+            Terrain.Forget();
+            Geocoder.Clear();
+        }
+
+        internal void CreateProject(string name)
+        {
+            if (Terrain.Busy) return;
+            Projects.Create(name);
+            Terrain.Forget();
+        }
+
+        internal void OpenProject(string id)
+        {
+            if (Terrain.Busy) return;
+            Projects.Open(id);
+            Terrain.Forget();
+        }
+
+        internal void CloseProject()
+        {
+            if (Terrain.Busy) return;
+            Projects.Close();
+            Terrain.Forget();
+        }
+
+        internal void DeleteProject(string id)
+        {
+            if (Terrain.Busy) return;
+            bool wasActive = Projects.Active?.Id == id;
+            Projects.Delete(id);
+            if (wasActive) Terrain.Forget();
         }
 
         // ---- Placement ---------------------------------------------------------------------
@@ -301,6 +361,7 @@ namespace MapOverlay
         // Puts the given place under the camera.
         internal void GoTo(double lat, double lon)
         {
+            if (Locked) return;
             m_Setting.CenterLat = GeoMath.ClampLatitude(lat);
             m_Setting.CenterLon = GeoMath.WrapLongitude(lon);
             if (TryGetCameraPivot(out var pivot))
@@ -316,7 +377,7 @@ namespace MapOverlay
         // Brings the current map centre to the camera.
         internal void BringHere()
         {
-            if (!TryGetCameraPivot(out var pivot)) return;
+            if (Locked || !TryGetCameraPivot(out var pivot)) return;
             m_Setting.AnchorX = pivot.x;
             m_Setting.AnchorZ = pivot.z;
             m_Setting.ApplyAndSave();
@@ -325,6 +386,7 @@ namespace MapOverlay
         // Slides the map on the ground. right/forward follow the camera's view.
         internal void Nudge(float right, float forward)
         {
+            if (Locked) return;
             var cam = CameraTransform();
             Vector3 f = cam != null ? cam.forward : Vector3.forward;
             f.y = 0;
@@ -344,6 +406,7 @@ namespace MapOverlay
         // Turns the map around the point the camera looks at.
         internal void SetRotation(float degrees)
         {
+            if (Locked) return;
             if (TryGetCameraPivot(out var pivot)) RecenterAt(pivot.x, pivot.z);
             m_Setting.Rotation = degrees;
             m_Setting.ApplyAndSave();
@@ -352,6 +415,7 @@ namespace MapOverlay
         // Changes the scale around the point the camera looks at.
         internal void SetScale(float percent)
         {
+            if (Locked) return;
             if (TryGetCameraPivot(out var pivot)) RecenterAt(pivot.x, pivot.z);
             m_Setting.ScalePercent = percent;
             m_Setting.ApplyAndSave();
@@ -361,6 +425,7 @@ namespace MapOverlay
         // centre of the area they export.
         internal void AlignToMapCentre()
         {
+            if (Locked) return;
             m_Setting.AnchorX = 0;
             m_Setting.AnchorZ = 0;
             m_Setting.ApplyAndSave();

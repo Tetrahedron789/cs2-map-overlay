@@ -83,3 +83,74 @@ export const panelStore = {
     };
   },
 };
+
+// Open tab, kept while the panel is closed.
+export type PanelTab = "overlay" | "terrain";
+let panelTab: PanelTab = "overlay";
+const tabListeners = new Set<Listener>();
+
+export const tabStore = {
+  get: () => panelTab,
+  set: (tab: PanelTab) => {
+    panelTab = tab;
+    tabListeners.forEach((l) => l());
+  },
+  subscribe: (listener: Listener) => {
+    tabListeners.add(listener);
+    return () => {
+      tabListeners.delete(listener);
+    };
+  },
+};
+
+// ---- Projects -------------------------------------------------------------------------
+
+export interface ProjectRow {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  locked: boolean;
+  terrain: string; // date of the last generated terrain, or ""
+}
+
+export const projects$ = bindValue<string>(group, "projects", "[]");
+export const activeProject$ = bindValue<string>(group, "activeProject", "");
+export const activeProjectName$ = bindValue<string>(group, "activeProjectName", "");
+export const activeProjectTerrain$ = bindValue<string>(group, "activeProjectTerrain", "");
+export const projectLocked$ = bindValue<boolean>(group, "projectLocked", false);
+export const projectDirty$ = bindValue<boolean>(group, "projectDirty", false);
+export const createProject = (name: string) => trigger(group, "createProject", name);
+export const openProject = (id: string) => trigger(group, "openProject", id);
+export const saveProject = () => trigger(group, "saveProject");
+export const closeProject = () => trigger(group, "closeProject");
+export const deleteProject = (id: string) => trigger(group, "deleteProject", id);
+export const setProjectLocked = (locked: boolean) => trigger(group, "setProjectLocked", locked);
+
+// ---- Terrain (editor only) ------------------------------------------------------------
+
+export enum TerrainState {
+  Idle = 0,
+  Downloading = 1,
+  Building = 2,
+  Done = 3,
+  Failed = 4,
+  Planting = 5,
+}
+
+export const inEditor$ = bindValue<boolean>(group, "inEditor", false);
+export const terrainState$ = bindValue<number>(group, "terrainState", 0);
+export const terrainProgress$ = bindValue<number>(group, "terrainProgress", 0);
+export const terrainProblem$ = bindValue<string>(group, "terrainProblem", "");
+export const terrainLowest$ = bindValue<number>(group, "terrainLowest", 0);
+export const terrainHighest$ = bindValue<number>(group, "terrainHighest", 0);
+export const terrainWaterLevel$ = bindValue<number>(group, "terrainWaterLevel", 0);
+export const terrainLowestInGame$ = bindValue<number>(group, "terrainLowestInGame", 0);
+export const terrainHeightScale$ = bindValue<number>(group, "terrainHeightScale", 0);
+export const terrainLakes$ = bindValue<number>(group, "terrainLakes", 0);
+export const terrainSources$ = bindValue<number>(group, "terrainSources", 0);
+export const terrainRivers$ = bindValue<number>(group, "terrainRivers", 0);
+export const terrainTrees$ = bindValue<number>(group, "terrainTrees", 0);
+// options: bit 0 lakes, bit 1 rivers, bit 2 trees, bits 4-5 tree density.
+export const buildTerrain = (options: number) => trigger(group, "buildTerrain", options);
+export const cancelTerrain = () => trigger(group, "cancelTerrain");

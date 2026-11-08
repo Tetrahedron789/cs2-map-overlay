@@ -21,7 +21,7 @@
   padding: 2rem;
   margin-right: $s3;
   border-radius: $radius-md;
-  background: $inset;
+  background-color: $inset;
 }
 
 .padRow {
@@ -35,11 +35,11 @@
   height: 30rem;
   margin: 1rem;
   border-radius: $radius-sm;
-  background: $surface-2;
+  background-color: $surface-2;
   color: $text-2;
   font-size: $text-sm;
   &:hover {
-    background: $accent-soft;
+    background-color: $accent-soft;
     color: $accent;
   }
 }
@@ -56,6 +56,85 @@
   padding-top: 2rem;
 }
 
+// ---- Projects -----------------------------------------------------------------------
+
+.projectRow {
+  @include row;
+  padding: $s2;
+  margin-bottom: $s1;
+  border-radius: $radius-sm;
+  background-color: $inset;
+}
+
+.projectInfo {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  margin-right: $s2;
+}
+
+.projectName {
+  color: $accent;
+  font-size: $text-sm;
+}
+
+.viewTitle {
+  color: $text-strong;
+  font-size: $text-lg;
+  font-weight: bold;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: $s4 $s3;
+  margin-bottom: $s3;
+  border-radius: $radius-md;
+  background-color: $inset;
+  text-align: center;
+}
+
+.emptyTitle {
+  color: $text;
+  font-size: $text-md;
+  font-weight: bold;
+}
+
+// The open project, always in view above the tabs.
+.projectBar {
+  margin-bottom: $s3;
+  padding: $s2;
+  border-width: 1rem;
+  border-style: solid;
+  border-color: $line-strong;
+  border-radius: $radius-md;
+  background-color: $section-head;
+}
+
+.projectTitle {
+  @include row;
+  justify-content: space-between;
+  margin-bottom: $s2;
+}
+
+.projectButtons {
+  @include row;
+  margin-right: -$s1; // cancels the last button's margin: the flex engine has no gap
+  button {
+    flex: 1;
+    margin-right: $s1;
+  }
+}
+
+.projectRowButtons {
+  @include row;
+  button {
+    margin-left: $s1;
+  }
+}
+
 // ---- Misc ---------------------------------------------------------------------------
 
 .customUrl {
@@ -68,4 +147,32 @@
 
 .footerWarning {
   margin-bottom: $s2;
+}
+
+// Holds the editor's own tool row and the mod's button, in the row's place on screen.
+.toolbarHost {
+  @include row;
+  justify-content: center;
+}
+
+// Same size and spacing as the row's own buttons; the rest of the look is the game's theme.
+.toolbarButton {
+  @include row;
+  justify-content: center;
+  margin-right: 12rem;
+  padding: 0;
+  pointer-events: auto;
+}
+
+.toolbarIcon {
+  width: 36rem;
+  height: 36rem;
+}
+
+// Only if a game update removes that row: the button floats on its own.
+.editorButton {
+  position: absolute;
+  right: 10rem;
+  bottom: 120rem;
+  pointer-events: auto;
 }

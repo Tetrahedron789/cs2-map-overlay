@@ -48,6 +48,26 @@ export const ModPanel = ({ icon, title, subtitle, actions, footer, onClose, styl
   </div>
 );
 
+// ---- Tabs ---------------------------------------------------------------------------
+
+interface TabsProps<T> {
+  options: T[];
+  value: T;
+  format: (option: T) => string;
+  dimmed?: (option: T) => boolean; // shows the tab as unavailable; it can still be opened to read why
+  onSelect: (option: T) => void;
+}
+
+export const Tabs = <T,>({ options, value, format, dimmed, onSelect }: TabsProps<T>) => (
+  <div className={s.tabs}>
+    {options.map((option, i) => (
+      <button key={i} className={cx(s.tab, option === value && s.tabOn, dimmed?.(option) && s.tabDimmed)} onClick={() => onSelect(option)}>
+        {format(option)}
+      </button>
+    ))}
+  </div>
+);
+
 // ---- Sections -----------------------------------------------------------------------
 
 // Open/closed state survives closing the panel (for this game session).

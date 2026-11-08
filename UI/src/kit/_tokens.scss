@@ -4,32 +4,40 @@
 // Sizes are in rem, which follows the game's UI scale (1rem ≈ 1px at 1080p). The game's
 // UI engine (Gameface) has no CSS grid and no flex `gap`: spacing comes from margins.
 
-// Brand: neutral whites and greys. Status colours (warning, danger) stay coloured.
-$accent: rgb(236, 239, 243);
-$accent-strong: rgb(255, 255, 255);
-$accent-soft: rgba(255, 255, 255, 0.12);
-$accent-line: rgba(255, 255, 255, 0.32);
-$on-accent: rgb(22, 24, 28);
+// Colours are the game's own CSS variables wherever one exists, so the panel looks native
+// and follows the game's themes. Literals are tints of its default theme.
+$accent: var(--accentColorNormal);
+$accent-strong: var(--accentColorLight);
+$accent-soft: rgba(255, 255, 255, 0.12);    // neutral: the accent is blue in game, orange in the editor
+$accent-line: rgba(255, 255, 255, 0.3);
+$selected: var(--accentColorDark);
+$selected-hover: var(--accentColorNormal);
+$on-accent: rgb(255, 255, 255);
 
 // Surfaces, darkest to lightest
-$panel-bg: rgba(20, 21, 24, 0.97);
-$header-bg: rgba(255, 255, 255, 0.03);
-$inset: rgba(0, 0, 0, 0.32);
-$surface-1: rgba(255, 255, 255, 0.045);
-$surface-2: rgba(255, 255, 255, 0.08);
-$surface-3: rgba(255, 255, 255, 0.14);
-$line: rgba(255, 255, 255, 0.07);
-$line-strong: rgba(255, 255, 255, 0.13);
+// Near opaque: the game's panels are 55% opaque, unreadable over a detailed map. Same dark blue.
+// Gameface ignores var() inside the background and border shorthands: use the longhands.
+$panel-bg: rgba(24, 33, 51, 0.97);
+$panel-blur: var(--panelBlur);
+$header-bg: rgba(0, 0, 0, 0.25);
+$section-bg: var(--sectionBackgroundColor);
+$section-head: var(--sectionHeaderColor);
+$inset: rgba(0, 0, 0, 0.25);
+$surface-1: rgba(255, 255, 255, 0.04);
+$surface-2: var(--hoverColor);
+$surface-3: var(--hoverColorBright);
+$line: var(--dividerColor);
+$line-strong: var(--sectionBorderColor);
 
 // Text
-$text: rgba(240, 244, 248, 0.94);
-$text-2: rgba(240, 244, 248, 0.62);
-$text-3: rgba(240, 244, 248, 0.4);
+$text: var(--menuText1Normal);
+$text-strong: rgb(255, 255, 255);
+$text-2: var(--menuText2Normal);
+$text-3: rgba(255, 255, 255, 0.45);
 
 // Status
-$warning: rgb(255, 186, 82);
-$warning-soft: rgba(255, 186, 82, 0.12);
-$danger: rgb(255, 120, 110);
+$warning: var(--warningColor);
+$warning-soft: rgba(255, 164, 45, 0.12);
 $info-soft: rgba(255, 255, 255, 0.05);
 
 // Spacing (4rem grid)
@@ -45,9 +53,9 @@ $text-md: 13.5rem;
 $text-lg: 15rem;
 
 // Shape
-$radius-sm: 4rem;
-$radius-md: 6rem;
-$radius-lg: 10rem;
+$radius-sm: 3rem;
+$radius-md: 4rem;
+$radius-lg: 4rem;
 $control-h: 28rem;
 $control-h-sm: 24rem;
 
@@ -61,6 +69,6 @@ $control-h-sm: 24rem;
   padding: 0;
   margin: 0;
   border: none;
-  background: transparent;
+  background-color: transparent;
   color: $text;
 }
