@@ -6,7 +6,7 @@ namespace MapOverlay
 {
     // Rivers and canals from OpenStreetMap (OsmWater). The data says where a river goes; these
     // rules decide how it looks and behaves in the game: a rounded path, a width that changes
-    // gradually, a rounded bed, and banks that always stand above the water, raising the ground
+    // gradually, a flat bed with the water up to its mapped edges, and banks above the water, raising the ground
     // where needed. Heights are worked out for the whole network at once, from where it flows
     // out, so pieces meet and nothing dams a river. The water itself is placed directly
     // (TerrainBuilder); sources only hold its level, evenly spaced and always inside the river.
@@ -18,9 +18,13 @@ namespace MapOverlay
         private const float kDefaultCanalWidth = 12f;
         private const float kMinWidth = 20f;      // game metres: thinner channels do not hold water well
         private const float kMaxWidth = 600f;
-        private const float kChannelScale = 1.2f; // the rounded bed narrows the water inside the channel
-        private const float kMinDepth = 2f;
-        private const float kMaxDepth = 5f;
+        private const float kMinFlat = 4f;        // metres: half width of the flat bed in the thinnest rivers
+        // Depth for the look of the game, not the real river: shallow water looks poor, more so
+        // from afar. Only the bed goes down, the water level stays.
+        private const float kMinDepth = 3f;
+        private const float kMaxDepth = 8f;
+        private const float kDepthBase = 2.5f;
+        private const float kDepthPerWidth = 0.05f; // metres of depth per metre of width
         private const float kBelowGround = 1.5f;  // water surface below the ground profile
         private const float kNodeSize = 24f;      // metres: river points this close share a height
         private const float kMinFall = 0.004f;    // per node, about 1:6000: water never stands still
@@ -421,16 +425,22 @@ namespace MapOverlay
                 if (LakeAt(result, size, p) >= 0) continue;
 
                 float here = mapped[i];
-                float depth = Math.Max(kMinDepth, Math.Min(kMaxDepth, kMinDepth + here / 100f));
+                float depth = Math.Max(kMinDepth, Math.Min(kMaxDepth, kDepthBase + here * kDepthPerWidth));
                 float surface = profile[i] - kBelowGround;
                 bool atSea = result.HasSea && surface <= kNoSourceBelow;
                 if (i % kProbeEvery == 0 && !atSea)
                     result.Probes.Add(new Lakes.Probe { X = p.X, Z = p.Z, Width = here, Surface = surface });
                 float bed = surface - depth, crest = surface + kFreeboard;
-                float half = here * kChannelScale / 2f;
+                // A flat bed, then a straight slope up: the water meets it at the river's mapped
+                // edge, so it fills the whole width. Thin rivers need a steeper slope to fit.
+                float underwater = Math.Max(kCutSlope, depth / Math.Max(1f, here / 2f - kMinFlat));
+                float half = here / 2f - depth / underwater;
+                if (half < kMinFlat) half = kMinFlat;
+                float toShore = depth / underwater;
+                float toCrest = toShore + kFreeboard / kCutSlope;
                 // Far enough to reach the ground where the river runs below it, so no cliff is left.
-                float cut = Math.Min(kMaxCut, Math.Max(0f, ground[i] - crest) / kCutSlope + 4f);
-                double reach = half + Math.Max(cut, kFillReach);
+                float cut = Math.Min(kMaxCut, toShore + Math.Max(0f, ground[i] - surface) / kCutSlope + 4f);
+                double reach = half + Math.Max(cut, toCrest + kFillReach);
 
                 int c0 = (int)Math.Floor((p.X - reach + size / 2) / px), c1 = (int)Math.Ceiling((p.X + reach + size / 2) / px);
                 int r0 = (int)Math.Floor((p.Z - reach + size / 2) / px), r1 = (int)Math.Ceiling((p.Z + reach + size / 2) / px);
@@ -441,33 +451,24 @@ namespace MapOverlay
                         float d = (float)Math.Sqrt(x * x + z * z);
                         if (d > reach) continue;
                         int pixel = r * res + c;
-                        if (d <= half)
+                        float out_ = Math.Max(0f, d - half);
+                        if (out_ <= cut)
                         {
-                            // Flat in the middle, curving up to the bank.
-                            float t = (d / half - 0.35f) / 0.65f;
-                            t = t < 0f ? 0f : t;
-                            float target = bed + (crest - bed) * (t * t * (3f - 2f * t));
+                            float target = out_ <= toShore ? bed + out_ * underwater : surface + (out_ - toShore) * kCutSlope;
                             if (target < carve[pixel])
                             {
                                 carve[pixel] = target;
-                                if (result.Surface != null) result.Surface[pixel] = surface;
+                                if (target < surface && result.Surface != null) result.Surface[pixel] = surface;
                             }
-                            continue;
                         }
-                        float out_ = d - half;
-                        if (out_ <= cut)
+                        if (out_ >= toCrest && out_ <= toCrest + kFillReach)
                         {
-                            float top = crest + out_ * kCutSlope;
-                            if (top < carve[pixel]) carve[pixel] = top;
-                        }
-                        if (out_ <= kFillReach)
-                        {
-                            float bank = crest - out_ * kFillSlope;
+                            float bank = crest - (out_ - toCrest) * kFillSlope;
                             if (bank > raise[pixel]) raise[pixel] = bank;
                         }
                     }
 
-                int mark = (int)Math.Ceiling((half + 6) / cell);
+                int mark = (int)Math.Ceiling((here / 2f + 6f) / cell);
                 int mc = (int)((p.X + size / 2) / cell), mr = (int)((p.Z + size / 2) / cell);
                 for (int r = Math.Max(0, mr - mark); r <= Math.Min(n - 1, mr + mark); r++)
                     for (int c = Math.Max(0, mc - mark); c <= Math.Min(n - 1, mc + mark); c++)

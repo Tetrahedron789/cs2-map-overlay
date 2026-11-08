@@ -61,10 +61,9 @@ namespace MapOverlay
         private const float kMinRadius = 12f;
         private const float kMaxRadius = 2400f;     // the editor allows 2500
         private const float kCoverage = 0.9f;       // of a source's radius counts as covered: water spreads over the gaps
-        private const float kEnoughCovered = 0.7f;  // of a lake's cells: no more sources after this
-        private const float kMinExtraRadius = 40f;  // narrow arms fill from the main body
-        private const int kMaxSourcesPerLake = 25;
-        private const int kMaxSources = 200;
+        private const float kMinExtraRadius = 30f;  // narrow arms get no circles of their own: the water is placed directly
+        private const int kMaxSourcesPerLake = 60;
+        private const int kMaxSources = 400;
 
         // `heights`: res² real metres over a `size` square centred on the world origin, row 0 south.
         // `mask`: kCells² OsmWater classes. `lakes` off leaves lakes alone; the sea is always shaped.
@@ -213,13 +212,10 @@ namespace MapOverlay
                 cells.Sort((a, b) => inside[b].CompareTo(inside[a]));
                 var covered = new HashSet<int>();
                 int placed = 0;
-                int enough = (int)(cells.Count * kEnoughCovered);
-                int coveredInLake = 0;
                 foreach (int c in cells)
                 {
                     if (placed >= kMaxSourcesPerLake || result.Sources.Count >= kMaxSources) break;
                     if (covered.Contains(c)) continue;
-                    if (placed > 0 && coveredInLake >= enough) break; // the water reaches the rest by itself
                     float radius = Math.Min(kMaxRadius, inside[c] * (float)cell);
                     if (radius < kMinRadius || (placed > 0 && radius < kMinExtraRadius))
                     {
@@ -244,8 +240,7 @@ namespace MapOverlay
                         {
                             int r = r0 + dr, k = c0 + dc;
                             if (r < 0 || k < 0 || r >= n || k >= n || dr * dr + dc * dc > reach * reach) continue;
-                            int cellIndex = r * n + k;
-                            if (covered.Add(cellIndex) && label[cellIndex] == lake) coveredInLake++;
+                            covered.Add(r * n + k);
                         }
                 }
             }
