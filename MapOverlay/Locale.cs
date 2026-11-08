@@ -21,7 +21,7 @@ namespace MapOverlay
             var s = m_Setting;
             return new Dictionary<string, string>
             {
-                { s.GetSettingsLocaleID(), "Map Overlay" },
+                { s.GetSettingsLocaleID(), "Real World Maps" },
                 { s.GetOptionTabLocaleID(Setting.kSection), "Main" },
 
                 { s.GetOptionGroupLocaleID(Setting.kViewGroup), "View" },
@@ -58,7 +58,7 @@ namespace MapOverlay
                 { s.GetOptionDescLocaleID(nameof(Setting.ClearCache)), "Deletes downloaded tiles in ModsData\\MapOverlay\\cache. They download again when shown." },
                 { s.GetOptionWarningLocaleID(nameof(Setting.ClearCache)), "Delete all downloaded tiles?" },
 
-                { kUIPrefix + "Title", "Map Overlay" },
+                { kUIPrefix + "Title", "Real World Maps" },
                 { kUIPrefix + "Visible", "Show map" },
                 { kUIPrefix + "Opacity", "Opacity" },
                 { kUIPrefix + "OnTop", "On top of everything" },

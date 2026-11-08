@@ -1,10 +1,21 @@
-# Map Overlay
+# Real World Maps: Overlay & Builder
 
-Mod de código para Cities: Skylines II (interfaz en inglés). Muestra OpenStreetMap sobre el terreno a escala real (1 m del mundo real = 1 unidad del juego, ajustable), como papel cebolla, para calcar trazados de ciudades reales. No afecta a la partida guardada.
+Antes llamado Map Overlay; el nombre interno (`MapOverlay`: DLL, carpeta, ajustes y log) no cambia, para conservar los datos de quienes ya lo usan.
 
-## Uso (0.2.0)
+Mod de código para Cities: Skylines II (interfaz en inglés). Genera mapas desde lugares reales en el editor y muestra OpenStreetMap sobre el terreno a escala real (1 m del mundo real = 1 unidad del juego, ajustable), como papel cebolla, para calcar trazados de ciudades reales. No afecta a la partida guardada.
 
-El botón del mod está en la barra superior izquierda de la partida. Abre un panel con:
+## Novedades de 0.3.0
+
+- **Proyectos**: uno por ciudad; se crean, cargan, guardan y eliminan. Guardan la posición y la vista del mapa, y se pueden bloquear para que el mapa no se mueva. Están en `ModsData\MapOverlay\projects`.
+- **Pestaña Terrain (solo en el editor)**: genera el área jugable y el mapa del mundo con elevación real, en el mismo encuadre que el Overlay, con suavizado, mar, lagos, ríos, canales y árboles. El agua se coloca al terminar de generar y las fuentes se crean solas. En partida la pestaña solo muestra un aviso.
+- **Agua**: los ríos se dibujan como una red conectada desde su desembocadura, con fondo plano, orillas sobre el agua y una profundidad que crece con el ancho. El log compara el agua real con la planificada a los 60 y 180 s.
+- **Panel**: pestañas Overlay y Terrain, estilo del juego y ventana que se arrastra desde el encabezado. En el editor, el botón está en la fila de herramientas de abajo.
+
+Fuentes de datos: elevación de Terrain Tiles en AWS (con la atribución que exige, en la descripción del mod), agua de OpenStreetMap con teselas vectoriales de OpenFreeMap y OpenMapTiles, y árboles de ESA WorldCover 2021 (CC BY 4.0).
+
+## Uso del Overlay
+
+El botón del mod está en la barra superior izquierda de la partida. Con un proyecto abierto, la pestaña Overlay tiene:
 
 - **Mostrar mapa** y **Opacidad**.
 - **Búsqueda**: sugerencias mientras escribes (Photon); Enter busca con Nominatim y, si no encuentra nada, con Photon. También acepta coordenadas (`19.4326, -99.1332`) o un enlace de Google Maps u OpenStreetMap. El lugar elegido aparece donde mira la cámara.

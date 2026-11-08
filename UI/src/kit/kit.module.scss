@@ -6,10 +6,13 @@
   position: absolute;
   display: flex;
   flex-direction: column;
-  border: 1rem solid $line-strong;
+  border-width: 1rem;
+  border-style: solid;
+  border-color: $line-strong;
   border-radius: $radius-lg;
-  background: $panel-bg;
-  box-shadow: 0 14rem 36rem rgba(0, 0, 0, 0.5);
+  background-color: $panel-bg;
+  backdrop-filter: $panel-blur;
+  box-shadow: 0 8rem 24rem rgba(0, 0, 0, 0.35);
   color: $text;
   pointer-events: auto;
   overflow: hidden;
@@ -18,8 +21,16 @@
 .header {
   @include row;
   padding: $s2 $s2 $s2 $s3;
-  border-bottom: 1rem solid $line;
-  background: $header-bg;
+  border-bottom-width: 1rem;
+  border-bottom-style: solid;
+  border-bottom-color: $line;
+  background-color: $header-bg;
+}
+
+.dragHandle {
+  @include row;
+  flex: 1;
+  cursor: move;
 }
 
 .badge {
@@ -28,9 +39,11 @@
   width: 30rem;
   height: 30rem;
   margin-right: $s3;
-  border-radius: 8rem;
-  background: $accent-soft;
-  border: 1rem solid $accent-line;
+  border-radius: $radius-md;
+  background-color: $accent-soft;
+  border-width: 1rem;
+  border-style: solid;
+  border-color: $accent-line;
 }
 
 .badgeIcon {
@@ -45,7 +58,7 @@
 }
 
 .title {
-  color: $text;
+  color: $accent;
   font-size: $text-lg;
   font-weight: bold;
   letter-spacing: 0.3rem;
@@ -72,7 +85,7 @@
   color: $text-2;
   font-size: $text-lg;
   &:hover {
-    background: $surface-2;
+    background-color: $surface-2;
     color: $text;
   }
 }
@@ -90,7 +103,7 @@
   width: 14rem;
   height: 2rem;
   border-radius: 1rem;
-  background: $text-2;
+  background-color: $text-2;
   transform: rotate(45deg);
 }
 
@@ -99,7 +112,7 @@
 }
 
 .iconButton:hover .closeBar {
-  background: $text;
+  background-color: $text;
 }
 
 .body {
@@ -109,17 +122,62 @@
 
 .footer {
   padding: $s2 $s3 $s3 $s3;
-  border-top: 1rem solid $line;
-  background: $header-bg;
+  border-top-width: 1rem;
+  border-top-style: solid;
+  border-top-color: $line;
+  background-color: $header-bg;
+}
+
+// ---- Tabs ---------------------------------------------------------------------------
+
+.tabs {
+  @include row;
+  margin-bottom: $s3;
+  border-bottom-width: 1rem;
+  border-bottom-style: solid;
+  border-bottom-color: $line-strong;
+}
+
+.tab {
+  @include reset-button;
+  flex: 1;
+  height: 34rem;
+  margin-bottom: -1rem;
+  border-bottom-width: 2rem;
+  border-bottom-style: solid;
+  border-bottom-color: transparent;
+  color: $text-2;
+  font-size: $text-xs;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1.2rem;
+  &:hover {
+    background-color: $surface-2;
+    color: $text;
+  }
+}
+
+.tabOn {
+  border-bottom-color: $accent;
+  color: $accent;
+  &:hover {
+    color: $accent;
+  }
+}
+
+.tabDimmed {
+  color: $text-3;
 }
 
 // ---- Sections -----------------------------------------------------------------------
 
 .section {
   margin-bottom: $s2;
-  border: 1rem solid $line;
+  border-width: 1rem;
+  border-style: solid;
+  border-color: $line-strong;
   border-radius: $radius-md;
-  background: $surface-1;
+  background-color: $section-bg;
 }
 
 .sectionHead {
@@ -128,8 +186,9 @@
   width: 100%;
   height: 34rem;
   padding: 0 $s3 0 $s2;
+  background-color: $section-head;
   &:hover {
-    background: $surface-1;
+    background-color: $surface-2;
   }
 }
 
@@ -157,19 +216,19 @@
 }
 
 .sectionOpen .sectionTitle {
-  color: $text;
+  color: $accent;
 }
 
 .summary {
   padding: 2rem $s2;
-  border-radius: 9rem;
-  background: $surface-2;
+  border-radius: $radius-sm;
+  background-color: $surface-2;
   color: $text-2;
   font-size: $text-xs;
 }
 
 .sectionBody {
-  padding: $s1 $s3 $s3 $s3;
+  padding: $s2 $s3 $s3 $s3;
 }
 
 // A vertical unit with standard spacing below it.
@@ -232,7 +291,7 @@
   padding: 0 $s2;
   border-radius: $radius-sm;
   &:hover {
-    background: $surface-2;
+    background-color: $surface-2;
   }
 }
 
@@ -241,8 +300,10 @@
   width: 32rem;
   height: 18rem;
   border-radius: 9rem;
-  background: $surface-3;
-  border: 1rem solid $line-strong;
+  background-color: $surface-3;
+  border-width: 1rem;
+  border-style: solid;
+  border-color: $line-strong;
 }
 
 .knob {
@@ -252,15 +313,15 @@
   width: 12rem;
   height: 12rem;
   border-radius: 6rem;
-  background: $text-2;
+  background-color: $text-2;
 }
 
 .switchOn {
-  background: $accent;
+  background-color: $selected;
   border-color: $accent;
   .knob {
     left: 16rem;
-    background: $on-accent;
+    background-color: $on-accent;
   }
 }
 
@@ -271,31 +332,33 @@
   height: $control-h;
   padding: 0 $s3;
   border-radius: $radius-sm;
-  border: 1rem solid $line-strong;
-  background: $surface-2;
+  border-width: 1rem;
+  border-style: solid;
+  border-color: $line-strong;
+  background-color: $surface-2;
   font-size: $text-sm;
   &:hover {
-    background: $surface-3;
+    background-color: $surface-3;
   }
 }
 
 .primary {
-  border-color: $accent;
-  background: $accent;
+  border-color: $selected;
+  background-color: $selected;
   color: $on-accent;
   font-weight: bold;
   &:hover {
-    border-color: $accent-strong;
-    background: $accent-strong;
+    border-color: $selected-hover;
+    background-color: $selected-hover;
   }
 }
 
 .ghost {
   border-color: $accent-line;
-  background: transparent;
+  background-color: transparent;
   color: $accent;
   &:hover {
-    background: $accent-soft;
+    background-color: $accent-soft;
   }
 }
 
@@ -309,10 +372,10 @@
   width: $control-h-sm;
   height: $control-h-sm;
   border-radius: $radius-sm;
-  background: $surface-2;
+  background-color: $surface-2;
   font-size: $text-md;
   &:hover {
-    background: $surface-3;
+    background-color: $surface-3;
   }
 }
 
@@ -322,7 +385,7 @@
   @include row;
   padding: 2rem;
   border-radius: $radius-md;
-  background: $inset;
+  background-color: $inset;
 }
 
 .stepperValue {
@@ -339,7 +402,7 @@
   width: 100%;
   padding: 2rem;
   border-radius: $radius-md;
-  background: $inset;
+  background-color: $inset;
 }
 
 .segment {
@@ -351,18 +414,18 @@
   color: $text-2;
   font-size: $text-sm;
   &:hover {
-    background: $surface-2;
+    background-color: $surface-2;
     color: $text;
   }
 }
 
 .segmentOn {
-  background: $accent-soft;
-  color: $accent;
+  background-color: $selected;
+  color: $on-accent;
   font-weight: bold;
   &:hover {
-    background: $accent-soft;
-    color: $accent;
+    background-color: $selected;
+    color: $on-accent;
   }
 }
 
@@ -386,7 +449,7 @@
   width: 100%;
   height: 4rem;
   border-radius: 2rem;
-  background: $surface-3;
+  background-color: $surface-3;
 }
 
 .fill {
@@ -395,7 +458,7 @@
   left: 0;
   height: 4rem;
   border-radius: 2rem;
-  background: $accent;
+  background-color: $accent;
 }
 
 .thumb {
@@ -405,8 +468,10 @@
   height: 14rem;
   margin-left: -7rem;
   border-radius: 7rem;
-  background: $text;
-  border: 2rem solid $accent;
+  background-color: $text-strong;
+  border-width: 2rem;
+  border-style: solid;
+  border-color: $accent;
 }
 
 // ---- Text field ---------------------------------------------------------------------
@@ -420,9 +485,11 @@
   height: $control-h;
   padding: 0 $s2;
   margin-right: $s2;
-  border: 1rem solid $line-strong;
+  border-width: 1rem;
+  border-style: solid;
+  border-color: $line-strong;
   border-radius: $radius-sm;
-  background: $inset;
+  background-color: $inset;
   color: $text;
   font-size: $text-sm;
   &:focus {
@@ -438,7 +505,7 @@
   margin-top: $s2;
   padding: 2rem;
   border-radius: $radius-md;
-  background: $inset;
+  background-color: $inset;
 }
 
 .listItem {
@@ -448,8 +515,8 @@
   font-size: $text-sm;
   text-align: left;
   &:hover {
-    background: $accent-soft;
-    color: $accent-strong;
+    background-color: $accent-soft;
+    color: $text-strong;
   }
 }
 
@@ -458,14 +525,16 @@
 .callout {
   padding: $s2 $s3;
   margin-bottom: $s2;
-  border-left: 3rem solid $warning;
+  border-left-width: 3rem;
+  border-left-style: solid;
+  border-left-color: $warning;
   border-radius: $radius-sm;
-  background: $warning-soft;
+  background-color: $warning-soft;
 }
 
 .calloutInfo {
   border-left-color: $accent;
-  background: $info-soft;
+  background-color: $info-soft;
 }
 
 .calloutText {
@@ -489,7 +558,7 @@
   height: 3rem;
   margin-bottom: $s2;
   border-radius: 2rem;
-  background: $surface-2;
+  background-color: $surface-2;
 }
 
 .progressFill {
@@ -498,7 +567,7 @@
   left: 0;
   height: 100%;
   border-radius: 2rem;
-  background: $accent;
+  background-color: $accent;
 }
 
 .meta {
