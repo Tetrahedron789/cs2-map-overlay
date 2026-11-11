@@ -61,14 +61,11 @@ export const ModPanel = ({ icon, title, subtitle, actions, footer, onClose, styl
   return (
     <div ref={panelRef} className={s.panel} style={{ ...style, transform: `translate(${offset.x}px, ${offset.y}px)` }}>
       <div className={s.header}>
+        <div className={s.headerTint} />
         <div className={s.dragHandle} onMouseDown={startDrag}>
-          <div className={s.badge}>
-            <img className={s.badgeIcon} src={icon} />
-          </div>
-          <div className={s.heading}>
-            <div className={s.title}>{title}</div>
-            {subtitle && <div className={s.subtitle}>{subtitle}</div>}
-          </div>
+          <img className={s.titleIcon} src={icon} />
+          <div className={s.title}>{title}</div>
+          {subtitle && <div className={s.subtitle}>{subtitle}</div>}
         </div>
         <div className={s.headerActions}>
           {actions}
@@ -131,7 +128,9 @@ export const Section = ({ id, title, summary, defaultOpen = false, children }: S
   return (
     <div className={cx(s.section, open && s.sectionOpen)}>
       <button className={s.sectionHead} onClick={toggle}>
-        <span className={cx(s.chevron, open && s.chevronOpen)}>›</span>
+        <span className={s.sectionArrow}>
+          <Arrow direction={open ? "down" : "right"} small />
+        </span>
         <span className={s.sectionTitle}>{title}</span>
         {summary !== undefined && summary !== "" && <span className={s.summary}>{summary}</span>}
       </button>
@@ -139,6 +138,13 @@ export const Section = ({ id, title, summary, defaultOpen = false, children }: S
     </div>
   );
 };
+
+type ArrowDirection = "up" | "right" | "down" | "left";
+const arrowClass = { up: s.arrowUp, right: s.arrowRight, down: s.arrowDown, left: s.arrowLeft };
+
+export const Arrow = ({ direction, small }: { direction: ArrowDirection; small?: boolean }) => (
+  <span className={cx(s.arrow, arrowClass[direction], small && s.arrowSmall)} />
+);
 
 export const Stack = ({ children, last }: { children: ReactNode; last?: boolean }) => (
   <div className={cx(s.stack, last && s.last)}>{children}</div>
@@ -162,16 +168,16 @@ export const LabelRow = ({ label, value }: { label: ReactNode; value: ReactNode 
 // ---- Controls -----------------------------------------------------------------------
 
 export const Switch = ({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) => (
-  <button className={cx(s.switch, value && s.switchOn)} onClick={() => onChange(!value)}>
-    <span className={s.knob} />
+  <button className={cx(s.toggle, value && s.toggleOn)} onClick={() => onChange(!value)}>
+    <span className={s.tick} />
   </button>
 );
 
 export const ToggleRow = ({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) => (
   <button className={cx(s.row, s.toggleRow)} onClick={() => onChange(!value)}>
     <span className={s.label}>{label}</span>
-    <span className={cx(s.switch, value && s.switchOn)}>
-      <span className={s.knob} />
+    <span className={cx(s.toggle, value && s.toggleOn)}>
+      <span className={s.tick} />
     </span>
   </button>
 );

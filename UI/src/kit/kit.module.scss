@@ -1,92 +1,92 @@
 @use "tokens" as *;
 
+// The look follows the game's own panels: a translucent blurred sheet, an accent-tinted title
+// bar, flat full-width strips divided by lines, and flat filled controls. No outlines or shadows.
+
 // ---- Panel shell --------------------------------------------------------------------
 
 .panel {
   position: absolute;
   display: flex;
   flex-direction: column;
-  border-width: 1rem;
-  border-style: solid;
-  border-color: $line-strong;
-  border-radius: $radius-lg;
+  border-radius: $radius-panel;
   background-color: $panel-bg;
   backdrop-filter: $panel-blur;
-  box-shadow: 0 8rem 24rem rgba(0, 0, 0, 0.35);
   color: $text;
+  font-size: $text-md;
   pointer-events: auto;
   overflow: hidden;
 }
 
 .header {
   @include row;
-  padding: $s2 $s2 $s2 $s3;
-  border-bottom-width: 1rem;
-  border-bottom-style: solid;
-  border-bottom-color: $line;
-  background-color: $header-bg;
+  position: relative;
+  height: 40rem;
+  padding: 0 $s2 0 $s3;
+  background-color: $title-bg;
+}
+
+// The accent over the dark bar. A layer of its own: the theme's colour cannot be given an alpha.
+.headerTint {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: $accent;
+  opacity: $title-tint;
 }
 
 .dragHandle {
   @include row;
+  position: relative;
   flex: 1;
+  min-width: 0;
+  height: 100%;
   cursor: move;
 }
 
-.badge {
-  @include row;
-  justify-content: center;
-  width: 30rem;
-  height: 30rem;
-  margin-right: $s3;
-  border-radius: $radius-md;
-  background-color: $accent-soft;
-  border-width: 1rem;
-  border-style: solid;
-  border-color: $accent-line;
-}
-
-.badgeIcon {
-  width: 20rem;
-  height: 20rem;
-}
-
-.heading {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
+.titleIcon {
+  width: 24rem;
+  height: 24rem;
+  margin-right: $s2;
 }
 
 .title {
-  color: $accent;
+  color: $text-strong;
   font-size: $text-lg;
   font-weight: bold;
-  letter-spacing: 0.3rem;
+  white-space: nowrap;
 }
 
 .subtitle {
-  margin-top: 1rem;
-  color: $text-3;
-  font-size: $text-xs;
+  flex: 1;
+  min-width: 0;
+  margin: 2rem $s2 0 $s3;
+  color: $text-2;
+  font-size: $text-sm;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .headerActions {
   @include row;
+  position: relative;
 }
 
 .iconButton {
   @include reset-button;
   @include row;
   justify-content: center;
-  width: $control-h;
-  height: $control-h;
+  width: $control-h-sm;
+  height: $control-h-sm;
   margin-left: $s1;
-  border-radius: $radius-md;
-  color: $text-2;
-  font-size: $text-lg;
+  border-radius: 12rem;
+  background-color: $surface-2;
   &:hover {
-    background-color: $surface-2;
-    color: $text;
+    background-color: $surface-3;
   }
 }
 
@@ -103,16 +103,12 @@
   width: 14rem;
   height: 2rem;
   border-radius: 1rem;
-  background-color: $text-2;
+  background-color: $text-strong;
   transform: rotate(45deg);
 }
 
 .closeBarCross {
   transform: rotate(-45deg);
-}
-
-.iconButton:hover .closeBar {
-  background-color: $text;
 }
 
 .body {
@@ -121,47 +117,41 @@
 }
 
 .footer {
-  padding: $s2 $s3 $s3 $s3;
-  border-top-width: 1rem;
-  border-top-style: solid;
-  border-top-color: $line;
-  background-color: $header-bg;
+  padding: $s2 $s3;
+  background-color: $strip;
 }
 
 // ---- Tabs ---------------------------------------------------------------------------
 
+// Strips run edge to edge: they cancel the body's side padding.
 .tabs {
   @include row;
-  margin-bottom: $s3;
-  border-bottom-width: 1rem;
-  border-bottom-style: solid;
-  border-bottom-color: $line-strong;
+  margin: 0 (-$s3) $s3 (-$s3);
+  background-color: $strip;
 }
 
 .tab {
   @include reset-button;
   flex: 1;
-  height: 34rem;
-  margin-bottom: -1rem;
+  height: $strip-h;
   border-bottom-width: 2rem;
   border-bottom-style: solid;
   border-bottom-color: transparent;
   color: $text-2;
-  font-size: $text-xs;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 1.2rem;
+  font-size: $text-md;
   &:hover {
-    background-color: $surface-2;
-    color: $text;
+    background-color: $surface-1;
+    color: $text-strong;
   }
 }
 
 .tabOn {
   border-bottom-color: $accent;
-  color: $accent;
+  background-color: $surface-2;
+  color: $text-strong;
+  font-weight: bold;
   &:hover {
-    color: $accent;
+    background-color: $surface-2;
   }
 }
 
@@ -172,63 +162,50 @@
 // ---- Sections -----------------------------------------------------------------------
 
 .section {
-  margin-bottom: $s2;
-  border-width: 1rem;
-  border-style: solid;
-  border-color: $line-strong;
-  border-radius: $radius-md;
-  background-color: $section-bg;
+  margin: 0 (-$s3);
+  border-top-width: 1rem;
+  border-top-style: solid;
+  border-top-color: $line;
 }
 
 .sectionHead {
   @include reset-button;
   @include row;
   width: 100%;
-  height: 34rem;
-  padding: 0 $s3 0 $s2;
-  background-color: $section-head;
+  height: $strip-h;
+  padding: 0 $s3;
+  background-color: $strip;
   &:hover {
-    background-color: $surface-2;
+    background-color: $surface-1;
   }
 }
 
-.chevron {
-  width: 16rem;
-  margin-right: $s1;
-  color: $text-3;
-  font-size: $text-sm;
-  text-align: center;
-}
-
-.chevronOpen {
-  transform: rotate(90deg);
-  color: $accent;
+.sectionArrow {
+  @include row;
+  justify-content: center;
+  width: 12rem;
+  margin-right: $s2;
 }
 
 .sectionTitle {
   flex: 1;
-  color: $text-2;
-  font-size: $text-xs;
-  font-weight: bold;
+  color: $text;
+  font-size: $text-md;
   text-align: left;
-  text-transform: uppercase;
-  letter-spacing: 1.2rem;
 }
 
 .sectionOpen .sectionTitle {
-  color: $accent;
+  color: $text-strong;
+  font-weight: bold;
 }
 
 .summary {
-  padding: 2rem $s2;
-  border-radius: $radius-sm;
-  background-color: $surface-2;
   color: $text-2;
-  font-size: $text-xs;
+  font-size: $text-sm;
 }
 
 .sectionBody {
-  padding: $s2 $s3 $s3 $s3;
+  padding: $s3;
 }
 
 // A vertical unit with standard spacing below it.
@@ -238,6 +215,46 @@
 
 .last {
   margin-bottom: 0;
+}
+
+// ---- Arrows -------------------------------------------------------------------------
+
+// Drawn with borders: the game's UI font lacks most arrow glyphs.
+.arrow {
+  width: 7rem;
+  height: 7rem;
+  border-top-width: 2rem;
+  border-top-style: solid;
+  border-top-color: $text;
+  border-right-width: 2rem;
+  border-right-style: solid;
+  border-right-color: $text;
+}
+
+// The margins put the visible point, not the rotated box, in the middle.
+.arrowUp {
+  margin-top: 4rem;
+  transform: rotate(-45deg);
+}
+
+.arrowRight {
+  margin-right: 4rem;
+  transform: rotate(45deg);
+}
+
+.arrowDown {
+  margin-bottom: 4rem;
+  transform: rotate(135deg);
+}
+
+.arrowLeft {
+  margin-left: 4rem;
+  transform: rotate(-135deg);
+}
+
+.arrowSmall {
+  width: 5rem;
+  height: 5rem;
 }
 
 // ---- Text ---------------------------------------------------------------------------
@@ -254,7 +271,7 @@
 }
 
 .value {
-  color: $accent;
+  color: $text-strong;
   font-size: $text-md;
 }
 
@@ -288,41 +305,55 @@
 
 .toggleRow {
   @include reset-button;
-  padding: 0 $s2;
-  border-radius: $radius-sm;
-  &:hover {
-    background-color: $surface-2;
+  &:hover .toggle {
+    border-color: $text-strong;
   }
 }
 
-.switch {
-  position: relative;
-  width: 32rem;
-  height: 18rem;
-  border-radius: 9rem;
-  background-color: $surface-3;
-  border-width: 1rem;
+// The game's checkbox: a square that fills with the accent and shows a tick.
+.toggle {
+  @include reset-button;
+  @include row;
+  justify-content: center;
+  width: 20rem;
+  height: 20rem;
+  border-width: 2rem;
   border-style: solid;
-  border-color: $line-strong;
-}
-
-.knob {
-  position: absolute;
-  top: 2rem;
-  left: 2rem;
-  width: 12rem;
-  height: 12rem;
-  border-radius: 6rem;
-  background-color: $text-2;
-}
-
-.switchOn {
-  background-color: $selected;
-  border-color: $accent;
-  .knob {
-    left: 16rem;
-    background-color: $on-accent;
+  border-color: $text-2;
+  border-radius: $radius-sm;
+  background-color: $inset;
+  &:hover {
+    border-color: $text-strong;
   }
+}
+
+.tick {
+  width: 5rem;
+  height: 10rem;
+  margin-bottom: 3rem;
+  border-right-width: 2rem;
+  border-right-style: solid;
+  border-right-color: transparent;
+  border-bottom-width: 2rem;
+  border-bottom-style: solid;
+  border-bottom-color: transparent;
+  transform: rotate(45deg);
+}
+
+.toggleOn {
+  border-color: $accent;
+  background-color: $accent;
+  &:hover {
+    border-color: $accent-strong;
+  }
+  .tick {
+    border-right-color: $on-accent;
+    border-bottom-color: $on-accent;
+  }
+}
+
+.toggleRow:hover .toggleOn {
+  border-color: $accent-strong;
 }
 
 // ---- Buttons ------------------------------------------------------------------------
@@ -332,10 +363,8 @@
   height: $control-h;
   padding: 0 $s3;
   border-radius: $radius-sm;
-  border-width: 1rem;
-  border-style: solid;
-  border-color: $line-strong;
   background-color: $surface-2;
+  color: $text-strong;
   font-size: $text-sm;
   &:hover {
     background-color: $surface-3;
@@ -343,27 +372,27 @@
 }
 
 .primary {
-  border-color: $selected;
   background-color: $selected;
   color: $on-accent;
   font-weight: bold;
   &:hover {
-    border-color: $selected-hover;
     background-color: $selected-hover;
   }
 }
 
+// The quiet one: for the way out or a secondary action.
 .ghost {
-  border-color: $accent-line;
-  background-color: transparent;
-  color: $accent;
+  background-color: $surface-1;
+  color: $text;
   &:hover {
-    background-color: $accent-soft;
+    background-color: $surface-2;
+    color: $text-strong;
   }
 }
 
 .wide {
   width: 100%;
+  height: $strip-h;
   font-size: $text-md;
 }
 
@@ -373,6 +402,7 @@
   height: $control-h-sm;
   border-radius: $radius-sm;
   background-color: $surface-2;
+  color: $text-strong;
   font-size: $text-md;
   &:hover {
     background-color: $surface-3;
@@ -383,39 +413,36 @@
 
 .stepper {
   @include row;
-  padding: 2rem;
-  border-radius: $radius-md;
-  background-color: $inset;
 }
 
 .stepperValue {
   width: 92rem;
-  color: $accent;
-  font-size: $text-sm;
+  color: $text-strong;
+  font-size: $text-md;
   text-align: center;
 }
 
 // ---- Segmented ----------------------------------------------------------------------
 
+// A row of the game's tool-option buttons. The negative margin cancels the last button's:
+// the flex engine has no gap.
 .segmented {
   @include row;
-  width: 100%;
-  padding: 2rem;
-  border-radius: $radius-md;
-  background-color: $inset;
+  margin-right: -2rem;
 }
 
 .segment {
   @include reset-button;
   flex: 1;
-  height: $control-h-sm;
-  margin: 0 1rem;
+  height: $control-h;
+  margin-right: 2rem;
   border-radius: $radius-sm;
-  color: $text-2;
+  background-color: $surface-2;
+  color: $text;
   font-size: $text-sm;
   &:hover {
-    background-color: $surface-2;
-    color: $text;
+    background-color: $surface-3;
+    color: $text-strong;
   }
 }
 
@@ -438,7 +465,7 @@
 .track {
   position: relative;
   flex: 1;
-  height: 18rem;
+  height: 20rem;
   margin: 0 $s3;
 }
 
@@ -447,31 +474,28 @@
   top: 7rem;
   left: 0;
   width: 100%;
-  height: 4rem;
-  border-radius: 2rem;
-  background-color: $surface-3;
+  height: 6rem;
+  border-radius: 3rem;
+  background-color: $inset;
 }
 
 .fill {
   position: absolute;
   top: 7rem;
   left: 0;
-  height: 4rem;
-  border-radius: 2rem;
+  height: 6rem;
+  border-radius: 3rem;
   background-color: $accent;
 }
 
 .thumb {
   position: absolute;
-  top: 2rem;
-  width: 14rem;
-  height: 14rem;
-  margin-left: -7rem;
-  border-radius: 7rem;
+  top: 1rem;
+  width: 10rem;
+  height: 18rem;
+  margin-left: -5rem;
+  border-radius: 2rem;
   background-color: $text-strong;
-  border-width: 2rem;
-  border-style: solid;
-  border-color: $accent;
 }
 
 // ---- Text field ---------------------------------------------------------------------
@@ -484,13 +508,13 @@
   flex: 1;
   height: $control-h;
   padding: 0 $s2;
-  margin-right: $s2;
+  margin-right: $s1;
   border-width: 1rem;
   border-style: solid;
-  border-color: $line-strong;
+  border-color: $line;
   border-radius: $radius-sm;
   background-color: $inset;
-  color: $text;
+  color: $text-strong;
   font-size: $text-sm;
   &:focus {
     border-color: $accent;
@@ -502,20 +526,22 @@
 .list {
   display: flex;
   flex-direction: column;
-  margin-top: $s2;
-  padding: 2rem;
-  border-radius: $radius-md;
+  margin-top: $s1;
+  border-radius: $radius-sm;
   background-color: $inset;
+  overflow: hidden;
 }
 
 .listItem {
   @include reset-button;
-  padding: 6rem $s2;
-  border-radius: $radius-sm;
+  padding: 7rem $s2;
+  border-bottom-width: 1rem;
+  border-bottom-style: solid;
+  border-bottom-color: $line;
   font-size: $text-sm;
   text-align: left;
   &:hover {
-    background-color: $accent-soft;
+    background-color: $surface-2;
     color: $text-strong;
   }
 }
@@ -525,20 +551,16 @@
 .callout {
   padding: $s2 $s3;
   margin-bottom: $s2;
-  border-left-width: 3rem;
-  border-left-style: solid;
-  border-left-color: $warning;
   border-radius: $radius-sm;
   background-color: $warning-soft;
 }
 
 .calloutInfo {
-  border-left-color: $accent;
   background-color: $info-soft;
 }
 
 .calloutText {
-  color: $text;
+  color: $text-strong;
   font-size: $text-sm;
 }
 
@@ -547,7 +569,7 @@
   justify-content: flex-end;
   margin-top: $s2;
   .button {
-    margin-left: $s2;
+    margin-left: $s1;
   }
 }
 
@@ -555,10 +577,10 @@
 
 .progress {
   position: relative;
-  height: 3rem;
-  margin-bottom: $s2;
+  height: 4rem;
+  margin-bottom: $s1;
   border-radius: 2rem;
-  background-color: $surface-2;
+  background-color: $inset;
 }
 
 .progressFill {
@@ -573,7 +595,7 @@
 .meta {
   @include row;
   justify-content: space-between;
-  color: $text-3;
+  color: $text-2;
   font-size: $text-xs;
 }
 

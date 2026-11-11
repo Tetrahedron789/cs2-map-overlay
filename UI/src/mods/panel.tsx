@@ -3,6 +3,7 @@ import { useValue } from "cs2/api";
 import { useLocalization } from "cs2/l10n";
 import { FloatingButton, Tooltip } from "cs2/ui";
 import {
+  Arrow,
   Button,
   Callout,
   Caption,
@@ -365,25 +366,27 @@ const Position = () => {
         <div className={styles.pad}>
           <div className={styles.padRow}>
             <button className={styles.padButton} onClick={() => b.nudge(0, step)}>
-              ▲
+              <Arrow direction="up" />
             </button>
           </div>
           <div className={styles.padRow}>
             <button className={styles.padButton} onClick={() => b.nudge(-step, 0)}>
-              ◀
+              <Arrow direction="left" />
             </button>
             <Tooltip tooltip={text("BringHere", "Bring centre here")}>
               <button className={cx(styles.padButton, styles.padCenter)} onClick={() => b.bringHere()}>
-                ◎
+                <span className={styles.target}>
+                  <span className={styles.targetDot} />
+                </span>
               </button>
             </Tooltip>
             <button className={styles.padButton} onClick={() => b.nudge(step, 0)}>
-              ▶
+              <Arrow direction="right" />
             </button>
           </div>
           <div className={styles.padRow}>
             <button className={styles.padButton} onClick={() => b.nudge(0, -step)}>
-              ▼
+              <Arrow direction="down" />
             </button>
           </div>
         </div>
@@ -697,9 +700,11 @@ const Terrain = () => {
               <Segmented options={[0, 1, 2]} value={density} format={(i) => densityNames[i]} onSelect={setDensity} />
             </>
           )}
-          <Button kind="primary" wide onClick={() => setConfirming(true)}>
-            {state === b.TerrainState.Done ? text("TerrainAgain", "Generate again") : text("TerrainGenerate", "Generate terrain here")}
-          </Button>
+          <div className={styles.generate}>
+            <Button kind="primary" wide onClick={() => setConfirming(true)}>
+              {state === b.TerrainState.Done ? text("TerrainAgain", "Generate again") : text("TerrainGenerate", "Generate terrain here")}
+            </Button>
+          </div>
         </Stack>
       )}
       {(water || withRivers || withTrees) && !busy && !confirming && state !== b.TerrainState.Done && (

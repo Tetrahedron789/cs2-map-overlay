@@ -4,41 +4,41 @@
 // Sizes are in rem, which follows the game's UI scale (1rem ≈ 1px at 1080p). The game's
 // UI engine (Gameface) has no CSS grid and no flex `gap`: spacing comes from margins.
 
-// Colours are the game's own CSS variables wherever one exists, so the panel looks native
-// and follows the game's themes. Literals are tints of its default theme.
+// Colours are the game's own CSS variables wherever one exists, so the panel follows the
+// game's themes (blue in a city, orange in the editor). Literals are tints of its default theme.
+// The accent is kept for what is selected or filled; text and values stay white, as in the
+// game's own panels.
 $accent: var(--accentColorNormal);
 $accent-strong: var(--accentColorLight);
-$accent-soft: rgba(255, 255, 255, 0.12);    // neutral: the accent is blue in game, orange in the editor
-$accent-line: rgba(255, 255, 255, 0.3);
 $selected: var(--accentColorDark);
 $selected-hover: var(--accentColorNormal);
 $on-accent: rgb(255, 255, 255);
 
-// Surfaces, darkest to lightest
-// Near opaque: the game's panels are 55% opaque, unreadable over a detailed map. Same dark blue.
+// Surfaces
+// The game's panels are about 45% opaque, hard to read over a detailed map: this is the same
+// dark blue at 85%, with the game's blur behind it.
 // Gameface ignores var() inside the background and border shorthands: use the longhands.
-$panel-bg: rgba(24, 33, 51, 0.97);
+$panel-bg: rgba(30, 40, 61, 0.85);
 $panel-blur: var(--panelBlur);
-$header-bg: rgba(0, 0, 0, 0.25);
-$section-bg: var(--sectionBackgroundColor);
-$section-head: var(--sectionHeaderColor);
-$inset: rgba(0, 0, 0, 0.25);
-$surface-1: rgba(255, 255, 255, 0.04);
-$surface-2: var(--hoverColor);
-$surface-3: var(--hoverColorBright);
+$title-bg: rgba(0, 0, 0, 0.35);
+$title-tint: 0.3;                         // how much accent shows through the title bar
+$strip: rgba(0, 0, 0, 0.22);              // header strips: tabs, section heads, footer
+$inset: rgba(0, 0, 0, 0.3);               // wells: text inputs, slider rail
+$surface-1: rgba(255, 255, 255, 0.05);
+$surface-2: rgba(255, 255, 255, 0.1);     // buttons
+$surface-3: rgba(255, 255, 255, 0.2);     // buttons, hovered
 $line: var(--dividerColor);
-$line-strong: var(--sectionBorderColor);
 
 // Text
 $text: var(--menuText1Normal);
 $text-strong: rgb(255, 255, 255);
 $text-2: var(--menuText2Normal);
-$text-3: rgba(255, 255, 255, 0.45);
+$text-3: rgba(255, 255, 255, 0.5);
 
 // Status
 $warning: var(--warningColor);
-$warning-soft: rgba(255, 164, 45, 0.12);
-$info-soft: rgba(255, 255, 255, 0.05);
+$warning-soft: rgba(255, 164, 45, 0.16);
+$info-soft: rgba(255, 255, 255, 0.07);
 
 // Spacing (4rem grid)
 $s1: 4rem;
@@ -46,18 +46,18 @@ $s2: 8rem;
 $s3: 12rem;
 $s4: 16rem;
 
-// Type
+// Type: the game's own steps
 $text-xs: 11rem;
 $text-sm: 12rem;
-$text-md: 13.5rem;
-$text-lg: 15rem;
+$text-md: 14rem;
+$text-lg: 16rem;
 
 // Shape
 $radius-sm: 3rem;
-$radius-md: 4rem;
-$radius-lg: 4rem;
+$radius-panel: 4rem;
 $control-h: 28rem;
 $control-h-sm: 24rem;
+$strip-h: 32rem;
 
 @mixin row {
   display: flex;

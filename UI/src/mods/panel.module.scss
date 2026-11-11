@@ -18,10 +18,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2rem;
   margin-right: $s3;
-  border-radius: $radius-md;
-  background-color: $inset;
 }
 
 .padRow {
@@ -31,21 +28,39 @@
 
 .padButton {
   @include reset-button;
+  @include row;
+  justify-content: center;
   width: 30rem;
   height: 30rem;
   margin: 1rem;
   border-radius: $radius-sm;
   background-color: $surface-2;
-  color: $text-2;
-  font-size: $text-sm;
   &:hover {
-    background-color: $accent-soft;
-    color: $accent;
+    background-color: $surface-3;
   }
 }
 
 .padCenter {
-  color: $accent;
+  background-color: $surface-1;
+}
+
+// "Bring the map centre here": a ring with a dot, drawn like the arrows.
+.target {
+  @include row;
+  justify-content: center;
+  width: 16rem;
+  height: 16rem;
+  border-width: 2rem;
+  border-style: solid;
+  border-color: $accent;
+  border-radius: 8rem;
+}
+
+.targetDot {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 2rem;
+  background-color: $accent;
 }
 
 // Fills the space next to the pad.
@@ -60,10 +75,10 @@
 
 .projectRow {
   @include row;
-  padding: $s2;
-  margin-bottom: $s1;
-  border-radius: $radius-sm;
-  background-color: $inset;
+  padding: $s2 0;
+  border-bottom-width: 1rem;
+  border-bottom-style: solid;
+  border-bottom-color: $line;
 }
 
 .projectInfo {
@@ -75,8 +90,9 @@
 }
 
 .projectName {
-  color: $accent;
-  font-size: $text-sm;
+  color: $text-strong;
+  font-size: $text-md;
+  font-weight: bold;
 }
 
 .viewTitle {
@@ -91,8 +107,8 @@
   align-items: center;
   padding: $s4 $s3;
   margin-bottom: $s3;
-  border-radius: $radius-md;
-  background-color: $inset;
+  border-radius: $radius-sm;
+  background-color: $surface-1;
   text-align: center;
 }
 
@@ -102,15 +118,13 @@
   font-weight: bold;
 }
 
-// The open project, always in view above the tabs.
+// The open project, always in view above the tabs: a strip from edge to edge, like the tabs.
 .projectBar {
-  margin-bottom: $s3;
-  padding: $s2;
-  border-width: 1rem;
-  border-style: solid;
-  border-color: $line-strong;
-  border-radius: $radius-md;
-  background-color: $section-head;
+  margin: (-$s3) (-$s3) 0 (-$s3);
+  padding: $s2 $s3;
+  border-bottom-width: 1rem;
+  border-bottom-style: solid;
+  border-bottom-color: $line;
 }
 
 .projectTitle {
@@ -143,6 +157,11 @@
 
 .indent {
   margin: -$s1 0 $s2 $s2;
+}
+
+// Set apart from the options above it.
+.generate {
+  margin-top: $s3;
 }
 
 .footerWarning {
