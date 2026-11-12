@@ -766,7 +766,8 @@ const Roads = () => {
     text("RoadsStreetsHint", "Adds every ordinary street. A dense city centre takes a while to build."),
     text("RoadsAllHint", "Adds service roads, alleys and dirt tracks too."),
   ];
-  const busy = state === b.RoadState.Downloading || state === b.RoadState.Planning || state === b.RoadState.Placing;
+  const busy =
+    state === b.RoadState.Downloading || state === b.RoadState.Planning || state === b.RoadState.Placing || state === b.RoadState.Removing;
   const terrainBusy =
     terrainState === b.TerrainState.Downloading || terrainState === b.TerrainState.Building || terrainState === b.TerrainState.Planting;
   const problems: Record<string, [string, string]> = {
@@ -837,6 +838,8 @@ const Roads = () => {
                 ? text("RoadsDownloading", "Downloading road data…")
                 : state === b.RoadState.Planning
                 ? text("RoadsPlanning", "Working out junctions…")
+                : state === b.RoadState.Removing
+                ? text("RoadsRemoving", "Removing roads…")
                 : text("RoadsPlacing", "Building roads…")
             }
             right={`${Math.round(progress * 100)}%`}
@@ -945,7 +948,8 @@ export const OverlayPanel = () => {
     terrainState === b.TerrainState.Planting ||
     roadState === b.RoadState.Downloading ||
     roadState === b.RoadState.Planning ||
-    roadState === b.RoadState.Placing;
+    roadState === b.RoadState.Placing ||
+    roadState === b.RoadState.Removing;
   const text = useText();
   const tab = useSyncExternalStore(b.tabStore.subscribe, b.tabStore.get);
   const selectTab = (next: b.PanelTab) => {

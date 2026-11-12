@@ -19,7 +19,7 @@ namespace MapOverlay
     // RoadPlacementSystem then hands the plan to the game.
     internal sealed class RoadBuilder
     {
-        public enum State { Idle, Downloading, Planning, Placing, Done, Failed }
+        public enum State { Idle, Downloading, Planning, Placing, Done, Failed, Removing }
 
         private readonly OsmWater m_Osm = new OsmWater();
         private Task<RoadPlan> m_Task;
@@ -38,7 +38,7 @@ namespace MapOverlay
         public int Zoom { get; private set; }
         public bool CanRemove { get; internal set; }
 
-        public bool Busy => Status == State.Downloading || Status == State.Planning || Status == State.Placing;
+        public bool Busy => Status == State.Downloading || Status == State.Planning || Status == State.Placing || Status == State.Removing;
 
         // options: bits 0-1 detail (0 main roads, 1 adds streets, 2 adds service roads and tracks).
         public void Start(MapFrame frame, int options)
@@ -63,7 +63,7 @@ namespace MapOverlay
         {
             if (Status == State.Downloading) m_Osm.Cancel();
             // A plan still being worked out is dropped when it arrives.
-            if (Status == State.Placing) return;
+            if (Status == State.Placing || Status == State.Removing) return;
             Reset();
         }
 
@@ -184,6 +184,12 @@ namespace MapOverlay
             return requested;
         }
 
+        internal void Removing(float progress)
+        {
+            Status = State.Removing;
+            Progress = progress;
+        }
+
         internal void Removed()
         {
             CanRemove = false;
@@ -212,6 +218,8 @@ namespace MapOverlay
         private bool m_HasBefore;
         private int m_Settle;
         private bool m_Placing;
+        private readonly List<Entity[]> m_RemoveBatches = new List<Entity[]>();
+        private int m_RemoveNext;
 
         protected override void OnCreate()
         {
@@ -227,6 +235,7 @@ namespace MapOverlay
             m_Before.Clear();
             m_HasBefore = false;
             m_Placing = false;
+            m_RemoveBatches.Clear();
             Mod.Controller?.Roads?.Abandon();
         }
 
@@ -236,7 +245,8 @@ namespace MapOverlay
             if (builder == null) return;
             try
             {
-                if (builder.TakeRemoveRequest()) Remove(builder);
+                if (builder.TakeRemoveRequest()) StartRemove(builder);
+                if (m_RemoveBatches.Count > 0) RemoveBatch(builder);
                 if (m_Placing) Settle(builder);
                 var plan = builder.TakePlan();
                 if (plan != null) Place(plan, builder);
@@ -245,6 +255,7 @@ namespace MapOverlay
             {
                 Mod.log.Error(ex, "Roads: placing the network failed.");
                 m_Placing = false;
+                m_RemoveBatches.Clear();
                 builder.Fail("Build");
             }
         }
@@ -389,7 +400,7 @@ namespace MapOverlay
                         skipped++;
                         continue;
                     }
-                    Define(prefab, from, to, a, b, seed++);
+                    Define(prefab, from, to, a, b, seed++, chain.Level > 0);
                     segments++;
                     from = to;
                 }
@@ -402,8 +413,19 @@ namespace MapOverlay
             Mod.log.Info($"Roads: placed {segments} segments ({plan.Bridges} bridges, {plan.Tunnels} tunnels, {skipped} skipped) from z{builder.Zoom} tiles.");
         }
 
-        private void Define(Entity prefab, float3 from, float3 to, RoadPlan.Stop a, RoadPlan.Stop b, int seed)
+        private void Define(Entity prefab, float3 from, float3 to, RoadPlan.Stop a, RoadPlan.Stop b, int seed, bool bridge)
         {
+            // The segment's own height over the ground, which the game weighs with its two ends'
+            // to pick its form. A bridge that leaves the ground is always on pillars, also where
+            // it runs lower than the 2 x limit the game asks for (a low bridge over a river):
+            // an embankment there would dam the water.
+            float middle = (a.Elevation + b.Elevation) * 0.5f;
+            if (bridge && (a.Elevation > 0f || b.Elevation > 0f))
+            {
+                float limit = EntityManager.HasComponent<NetGeometryData>(prefab) ? EntityManager.GetComponentData<NetGeometryData>(prefab).m_ElevationLimit : 4f;
+                middle = math.max(middle, limit * 2f + 0.5f);
+            }
+
             // A cubic curve leaving each end along the road's direction there. The handles are a
             // third of the way; the height runs straight between the ends.
             float handle = math.distance(from.xz, to.xz) / 3f;
@@ -446,7 +468,7 @@ namespace MapOverlay
                     m_ParentMesh = -1,
                 },
                 m_Curve = curve,
-                m_Elevation = new float2(a.Elevation, b.Elevation),
+                m_Elevation = new float2(middle, middle),
                 m_Length = MathUtils.Length(curve),
                 m_FixedIndex = -1,
             });
@@ -494,50 +516,116 @@ namespace MapOverlay
             return result;
         }
 
-        // Deletes the roads added since the map was loaded, and the junctions only they use. All in
-        // one frame: a deleted road whose junction stays makes the game rebuild that junction.
-        private void Remove(RoadBuilder builder)
+        private const int kRemovePerFrame = 512;
+        private const float kRemoveCell = 8f;
+
+        // Z-order of a cell: neighbouring codes are neighbouring places, so a run of them is one
+        // compact area.
+        private static long Morton(int x, int z)
         {
-            if (!m_HasBefore || m_Placing) return;
+            uint ux = (uint)(x + (1 << 20)) & 0x1FFFFF, uz = (uint)(z + (1 << 20)) & 0x1FFFFF;
+            long code = 0;
+            for (int bit = 0; bit < 21; bit++)
+                code |= ((long)((ux >> bit) & 1) << (2 * bit)) | ((long)((uz >> bit) & 1) << (2 * bit + 1));
+            return code;
+        }
+
+        // Deletes the roads added since the map was loaded, and the junctions only they use.
+        // Deleting a whole network in one frame makes the game run out of memory and exit, so it
+        // goes area by area, a batch a frame, each junction with the last of its roads: only the
+        // junctions on a batch's border are left half-connected for a frame and rebuilt.
+        private void StartRemove(RoadBuilder builder)
+        {
+            if (!m_HasBefore || m_Placing || m_RemoveBatches.Count > 0) return;
             var edges = new HashSet<Entity>();
             foreach (var edge in RoadEdges())
                 if (!m_Before.Contains(edge)) edges.Add(edge);
-            var doomed = new List<Entity>(edges);
-            var nodes = new HashSet<Entity>();
+
+            // For each junction, how many of its roads are going; -1 if any road stays.
+            var left = new Dictionary<Entity, int>();
+            var ordered = new List<(long Code, Entity Edge, Entity Start, Entity End)>(edges.Count);
             foreach (var entity in edges)
             {
                 var edge = EntityManager.GetComponentData<Edge>(entity);
-                nodes.Add(edge.m_Start);
-                nodes.Add(edge.m_End);
+                float3 middle = default;
+                if (EntityManager.HasComponent<Node>(edge.m_Start) && EntityManager.HasComponent<Node>(edge.m_End))
+                    middle = (EntityManager.GetComponentData<Node>(edge.m_Start).m_Position + EntityManager.GetComponentData<Node>(edge.m_End).m_Position) * 0.5f;
+                ordered.Add((Morton((int)math.floor(middle.x / kRemoveCell), (int)math.floor(middle.z / kRemoveCell)), entity, edge.m_Start, edge.m_End));
+                Count(edge.m_Start, edges, left);
+                Count(edge.m_End, edges, left);
             }
-            var shared = new List<Entity>();
-            foreach (var node in nodes)
+            ordered.Sort((a, b) => a.Code != b.Code ? a.Code.CompareTo(b.Code) : a.Edge.Index.CompareTo(b.Edge.Index));
+
+            var batch = new List<Entity>();
+            int inBatch = 0;
+            foreach (var item in ordered)
             {
-                if (!EntityManager.Exists(node) || EntityManager.HasComponent<Deleted>(node)) continue;
-                bool used = false;
-                if (EntityManager.HasBuffer<ConnectedEdge>(node))
-                {
-                    var connected = EntityManager.GetBuffer<ConnectedEdge>(node, true);
-                    for (int i = 0; i < connected.Length; i++)
-                        if (!edges.Contains(connected[i].m_Edge) && EntityManager.Exists(connected[i].m_Edge) && !EntityManager.HasComponent<Deleted>(connected[i].m_Edge))
-                        {
-                            used = true;
-                            break;
-                        }
-                }
-                if (used) shared.Add(node);
-                else doomed.Add(node);
+                batch.Add(item.Edge);
+                Release(item.Start, left, batch);
+                if (item.End != item.Start) Release(item.End, left, batch);
+                if (++inBatch < kRemovePerFrame) continue;
+                m_RemoveBatches.Add(batch.ToArray());
+                batch.Clear();
+                inBatch = 0;
             }
-            if (doomed.Count > 0)
-                using (var array = new NativeArray<Entity>(doomed.ToArray(), Allocator.Temp))
+            if (batch.Count > 0) m_RemoveBatches.Add(batch.ToArray());
+            m_RemoveNext = 0;
+            Mod.log.Info($"Roads: removing {edges.Count} road segments in {m_RemoveBatches.Count} steps.");
+            if (m_RemoveBatches.Count == 0) builder.Removed();
+            else builder.Removing(0f);
+        }
+
+        private void Count(Entity node, HashSet<Entity> edges, Dictionary<Entity, int> left)
+        {
+            if (left.ContainsKey(node) || !EntityManager.Exists(node)) return;
+            int count = 0;
+            if (EntityManager.HasBuffer<ConnectedEdge>(node))
+            {
+                var connected = EntityManager.GetBuffer<ConnectedEdge>(node, true);
+                for (int i = 0; i < connected.Length; i++)
                 {
-                    EntityManager.AddComponent<Deleted>(array);
-                    EntityManager.AddComponent<Updated>(array);
+                    if (edges.Contains(connected[i].m_Edge)) count++;
+                    else if (EntityManager.Exists(connected[i].m_Edge) && !EntityManager.HasComponent<Deleted>(connected[i].m_Edge))
+                    {
+                        count = -1;
+                        break;
+                    }
                 }
-            // Junctions that keep other roads rebuild themselves without the removed ones.
-            foreach (var node in shared)
-                if (!EntityManager.HasComponent<Updated>(node)) EntityManager.AddComponent<Updated>(node);
-            Mod.log.Info($"Roads: removed {edges.Count} road segments.");
+            }
+            left[node] = count;
+        }
+
+        private static void Release(Entity node, Dictionary<Entity, int> left, List<Entity> batch)
+        {
+            if (!left.TryGetValue(node, out int count) || count < 0) return;
+            left[node] = --count;
+            if (count <= 0)
+            {
+                left[node] = -1;
+                batch.Add(node);
+            }
+        }
+
+        private void RemoveBatch(RoadBuilder builder)
+        {
+            var alive = new List<Entity>();
+            foreach (var entity in m_RemoveBatches[m_RemoveNext])
+                if (EntityManager.Exists(entity) && !EntityManager.HasComponent<Deleted>(entity)) alive.Add(entity);
+            if (alive.Count > 0)
+            {
+                var array = new NativeArray<Entity>(alive.ToArray(), Allocator.Temp);
+                EntityManager.AddComponent<Deleted>(array);
+                EntityManager.AddComponent<Updated>(array);
+                array.Dispose();
+            }
+            m_RemoveNext++;
+            if (m_RemoveNext < m_RemoveBatches.Count)
+            {
+                builder.Removing((float)m_RemoveNext / m_RemoveBatches.Count);
+                return;
+            }
+            m_RemoveBatches.Clear();
+            Mod.log.Info("Roads: removed.");
             builder.Removed();
         }
     }

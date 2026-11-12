@@ -10,10 +10,14 @@ namespace MapOverlay
     // it is planned on a background thread and only the heights are filled in on the main one.
     internal sealed class RoadPlan
     {
-        public const double kClearance = 6.5;   // metres a bridge rises over what it crosses, per level
-        public const double kDip = 8.0;         // metres a tunnel sinks under what it crosses, per level
-        public const double kRampGrade = 0.06;  // slope of the approaches to a raised bridge or sunk tunnel
-        public const double kMaxOffset = 24.0;
+        // The game picks a road's form from its height over the ground, against a limit of 4 m for
+        // roads: from 4 m it is an embankment with retaining walls, and only from 8 m a bridge on
+        // pillars; from -4 m an open cutting, and a tunnel only where it is 8 m down at both ends
+        // and 12 m somewhere. So a bridge has to clear 8 m and an underpass go 12 m down.
+        public const double kClearance = 8.5;   // metres a bridge rises over what it crosses, per level
+        public const double kDip = 12.5;        // metres a tunnel sinks under what it crosses
+        public const double kRampGrade = 0.08;  // slope of the approaches to a raised bridge or sunk tunnel
+        public const double kMaxOffset = 26.0;
         public const float kGroundTolerance = 1f; // closer to the ground than this is on the ground
 
         public sealed class Node
@@ -74,7 +78,7 @@ namespace MapOverlay
                     double span = gA + (gB - gA) * (c.Length > 0 ? x.S / c.Length : 0);
                     double g = ground(x.X, x.Z);
                     double gap = c.Level > 0 ? span - g : g - span;
-                    need = Math.Max(need, (c.Level > 0 ? kClearance : kDip) * x.Levels - gap);
+                    need = Math.Max(need, (c.Level > 0 ? kClearance * x.Levels : kDip) - gap);
                 }
                 need = Math.Min(need, kMaxOffset);
                 if (need < 0.5) continue;

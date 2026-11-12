@@ -164,6 +164,7 @@ export enum RoadState {
   Placing = 3,
   Done = 4,
   Failed = 5,
+  Removing = 6,
 }
 
 export const roadState$ = bindValue<number>(group, "roadState", 0);
