@@ -84,6 +84,7 @@ namespace MapOverlay
             AddUpdateBinding(new GetterValueBinding<int>(kGroup, "roadSegments", () => Mod.Controller?.Roads?.Segments ?? 0));
             AddUpdateBinding(new GetterValueBinding<int>(kGroup, "roadBridges", () => Mod.Controller?.Roads?.Bridges ?? 0));
             AddUpdateBinding(new GetterValueBinding<int>(kGroup, "roadTunnels", () => Mod.Controller?.Roads?.Tunnels ?? 0));
+            AddUpdateBinding(new GetterValueBinding<int>(kGroup, "roadNamed", () => Mod.Controller?.Roads?.Named ?? 0));
             AddUpdateBinding(new GetterValueBinding<int>(kGroup, "roadSkipped", () => Mod.Controller?.Roads?.Skipped ?? 0));
             AddUpdateBinding(new GetterValueBinding<int>(kGroup, "roadZoom", () => Mod.Controller?.Roads?.Zoom ?? 14));
             AddUpdateBinding(new GetterValueBinding<bool>(kGroup, "roadCanRemove", () => Mod.Controller?.Roads?.CanRemove ?? false));

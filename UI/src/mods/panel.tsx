@@ -755,6 +755,8 @@ const Roads = () => {
   const bridges = useValue(b.roadBridges$);
   const tunnels = useValue(b.roadTunnels$);
   const skipped = useValue(b.roadSkipped$);
+  const named = useValue(b.roadNamed$);
+  const [names, setNames] = useState(true);
   const zoom = useValue(b.roadZoom$);
   const canRemove = useValue(b.roadCanRemove$);
   const terrainState = useValue(b.terrainState$);
@@ -797,7 +799,7 @@ const Roads = () => {
                 kind="primary"
                 onClick={() => {
                   setConfirming("");
-                  b.buildRoads(detail);
+                  b.buildRoads(detail | (names ? 4 : 0));
                 }}
               >
                 {text("RoadsBuildConfirm", "Build roads")}
@@ -858,6 +860,9 @@ const Roads = () => {
           <Segmented options={[0, 1, 2]} value={detail} format={(i) => detailNames[i]} onSelect={setDetail} />
           <Hint>{detailHints[detail]}</Hint>
           <div className={styles.generate}>
+            <ToggleRow label={text("RoadsNames", "Real street names")} value={names} onChange={setNames} />
+          </div>
+          <div className={styles.generate}>
             {terrainBusy ? (
               <Hint>{text("RoadsWaitTerrain", "Wait for the terrain to finish first.")}</Hint>
             ) : (
@@ -881,6 +886,7 @@ const Roads = () => {
         <Stack last>
           <LabelRow label={text("RoadsSegments", "Road segments")} value={`${segments}`} />
           <LabelRow label={text("RoadsBridgesTunnels", "Bridges · tunnels")} value={`${bridges} · ${tunnels}`} />
+          {named > 0 && <LabelRow label={text("RoadsNamed", "Streets with real names")} value={`${named}`} />}
           {skipped > 0 && <LabelRow label={text("RoadsSkipped", "Left out")} value={`${skipped}`} />}
           {zoom < 14 && <Hint warning>{text("RoadsCoarse", "At this map scale the data is coarser: small streets are missing.")}</Hint>}
           {canRemove && confirming === "" && (

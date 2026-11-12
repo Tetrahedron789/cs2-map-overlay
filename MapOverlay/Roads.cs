@@ -49,6 +49,7 @@ namespace MapOverlay
             public int Level;           // above 0 a bridge, below 0 a tunnel
             public double Length;
             public Stop[] Stops;
+            public string Name;         // the real street's name, null when it has none
             internal List<Crossing> Crossings;
         }
 
@@ -210,12 +211,80 @@ namespace MapOverlay
         }
 
         // detail: 0 main roads, 1 adds streets, 2 adds service roads and tracks.
-        public static RoadPlan Build(List<OsmWater.Road> roads, int detail, double half)
+        public static RoadPlan Build(List<OsmWater.Road> roads, List<OsmWater.RoadName> names, int detail, double half)
         {
             var lines = Collect(roads, detail, half - kEdgeMargin);
             Unify(lines);
             Join(lines);
-            return Assemble(lines);
+            var plan = Assemble(lines);
+            if (names != null && names.Count > 0) Name(plan, names);
+            return plan;
+        }
+
+        // ---- Names -------------------------------------------------------------------------
+
+        private const double kNameCell = 32.0;
+        private const double kNameReach = 8.0;
+
+        // The tiles carry street names as separate lines drawn along the roads. Each road takes
+        // the name most of its pieces run alongside: close by and in the same direction, so a
+        // side street does not pick up the name of the avenue it ends on.
+        private static void Name(RoadPlan plan, List<OsmWater.RoadName> names)
+        {
+            var cells = new Dictionary<long, List<(P A, P B, string Name)>>();
+            foreach (var line in names)
+                for (int i = 0; i + 1 < line.Points.Count; i++)
+                {
+                    var a = new P(line.Points[i].X, line.Points[i].Z);
+                    var b = new P(line.Points[i + 1].X, line.Points[i + 1].Z);
+                    long x0 = (long)Math.Floor((Math.Min(a.X, b.X) - kNameReach) / kNameCell), x1 = (long)Math.Floor((Math.Max(a.X, b.X) + kNameReach) / kNameCell);
+                    long z0 = (long)Math.Floor((Math.Min(a.Z, b.Z) - kNameReach) / kNameCell), z1 = (long)Math.Floor((Math.Max(a.Z, b.Z) + kNameReach) / kNameCell);
+                    // A line that runs off across the map is not a street's name.
+                    if ((x1 - x0 + 1) * (z1 - z0 + 1) > 4096) continue;
+                    for (long x = x0; x <= x1; x++)
+                        for (long z = z0; z <= z1; z++)
+                        {
+                            long key = Key(x, z);
+                            if (!cells.TryGetValue(key, out var list)) cells[key] = list = new List<(P, P, string)>();
+                            list.Add((a, b, line.Name));
+                        }
+                }
+
+            var votes = new Dictionary<string, int>();
+            foreach (var chain in plan.Chains)
+            {
+                votes.Clear();
+                int samples = 0;
+                for (int i = 0; i + 1 < chain.Stops.Length; i++)
+                {
+                    var s = chain.Stops[i];
+                    var e = chain.Stops[i + 1];
+                    var middle = new P((s.X + e.X) / 2, (s.Z + e.Z) / 2);
+                    double dx = e.X - s.X, dz = e.Z - s.Z, size = Math.Sqrt(dx * dx + dz * dz);
+                    if (size < 1e-6) continue;
+                    samples++;
+                    if (!cells.TryGetValue(Key((long)Math.Floor(middle.X / kNameCell), (long)Math.Floor(middle.Z / kNameCell)), out var near)) continue;
+                    string best = null;
+                    double bestDistance = kNameReach;
+                    foreach (var (a, b, name) in near)
+                    {
+                        double distance = ToSegment(middle, a, b, out _);
+                        if (distance >= bestDistance) continue;
+                        double nx = b.X - a.X, nz = b.Z - a.Z, length = Math.Sqrt(nx * nx + nz * nz);
+                        if (length < 1e-6 || Math.Abs(dx * nx + dz * nz) < 0.85 * size * length) continue;
+                        bestDistance = distance;
+                        best = name;
+                    }
+                    if (best == null) continue;
+                    votes.TryGetValue(best, out int n);
+                    votes[best] = n + 1;
+                }
+                string winner = null;
+                int most = 0;
+                foreach (var vote in votes)
+                    if (vote.Value > most) { most = vote.Value; winner = vote.Key; }
+                if (winner != null && most * 2 >= samples) chain.Name = winner;
+            }
         }
 
         // ---- Input -------------------------------------------------------------------------

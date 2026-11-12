@@ -34,6 +34,13 @@ namespace MapOverlay
             public bool CutStart, CutEnd; // ends at a tile edge: the road goes on in the next tile
         }
 
+        // A named stretch of road from the "transportation_name" layer, in world metres.
+        public sealed class RoadName
+        {
+            public readonly List<(double X, double Z)> Points = new List<(double, double)>();
+            public string Name;
+        }
+
         public sealed class Data
         {
             public byte[] Mask;     // n² cells of kNone..kLake over the map, row 0 south
@@ -65,6 +72,7 @@ namespace MapOverlay
         private int m_Zoom;
         private int m_Total;
         private List<Road> m_Roads; // set while decoding roads instead of water
+        private List<RoadName> m_RoadNames;
 
         public int Zoom => m_Zoom;
 
@@ -262,10 +270,11 @@ namespace MapOverlay
         }
 
         // The roads of the same tiles; a separate pass from the water.
-        public List<Road> DecodeRoads()
+        public List<Road> DecodeRoads(List<RoadName> names)
         {
             var roads = new List<Road>();
             m_Roads = roads;
+            m_RoadNames = names;
             try
             {
                 foreach (var tile in m_Tiles)
@@ -274,8 +283,9 @@ namespace MapOverlay
             finally
             {
                 m_Roads = null;
+                m_RoadNames = null;
             }
-            Mod.log.Info($"OSM roads: z{m_Zoom}, {m_Tiles.Count} tiles, {roads.Count} road pieces.");
+            Mod.log.Info($"OSM roads: z{m_Zoom}, {m_Tiles.Count} tiles, {roads.Count} road pieces, {names.Count} named stretches.");
             return roads;
         }
 
@@ -327,9 +337,12 @@ namespace MapOverlay
             }
             if (m_Roads != null)
             {
-                if (name != "transportation") return;
-                foreach (var feature in features)
-                    ReadRoad(b, feature.Start, feature.End, keys, values, extent, tx, ty);
+                if (name == "transportation")
+                    foreach (var feature in features)
+                        ReadRoad(b, feature.Start, feature.End, keys, values, extent, tx, ty);
+                else if (name == "transportation_name")
+                    foreach (var feature in features)
+                        ReadRoadName(b, feature.Start, feature.End, keys, values, extent, tx, ty);
                 return;
             }
             bool polygons = name == "water", lines = name == "waterway";
@@ -476,6 +489,49 @@ namespace MapOverlay
                         road.CutEnd = cut;
                     }
                 }
+            }
+        }
+
+        // Names come as their own lines, drawn along the roads they belong to. Left unclipped:
+        // they are only matched to roads by position, so the overlap between tiles does no harm.
+        private void ReadRoadName(byte[] b, int start, int end, List<string> keys, List<string> values, uint extent, int tx, int ty)
+        {
+            string text = null, number = null;
+            int type = 0;
+            var commands = new List<uint>();
+            int i = start;
+            while (i < end)
+            {
+                ulong key = Varint(b, ref i);
+                int field = (int)(key >> 3), wire = (int)(key & 7);
+                if (field == 3 && wire == 0) { type = (int)Varint(b, ref i); continue; }
+                if (wire != 2) { Skip(b, ref i, wire); continue; }
+                int length = (int)Varint(b, ref i), stop = i + length;
+                if (field == 2)
+                {
+                    while (i < stop)
+                    {
+                        string k = keys[(int)Varint(b, ref i)];
+                        string v = values[(int)Varint(b, ref i)];
+                        if (k == "name") text = v;
+                        else if (k == "ref") number = v;
+                    }
+                }
+                else if (field == 4)
+                {
+                    while (i < stop) commands.Add((uint)Varint(b, ref i));
+                }
+                i = stop;
+            }
+            // Motorways often have only a number (A8, I-5).
+            if (string.IsNullOrWhiteSpace(text)) text = number;
+            if (type != 2 || string.IsNullOrWhiteSpace(text)) return;
+            foreach (var path in Paths(commands))
+            {
+                if (path.Count < 2) continue;
+                var line = new RoadName { Name = text.Trim() };
+                foreach (var p in path) line.Points.Add(ToWorld(tx + p.X / (double)extent, ty + p.Y / (double)extent));
+                m_RoadNames.Add(line);
             }
         }
 

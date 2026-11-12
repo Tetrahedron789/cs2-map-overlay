@@ -26,6 +26,7 @@ namespace MapOverlay
         private Task m_Running; // the last planning task, wanted or not: it reads the tiles until it ends
         private RoadPlan m_Ready;
         private int m_Detail;
+        private bool m_Names;
         private bool m_RemoveRequested;
 
         public State Status { get; private set; }
@@ -35,17 +36,20 @@ namespace MapOverlay
         public int Bridges { get; private set; }
         public int Tunnels { get; private set; }
         public int Skipped { get; private set; }
+        public int Named { get; internal set; }
         public int Zoom { get; private set; }
         public bool CanRemove { get; internal set; }
 
         public bool Busy => Status == State.Downloading || Status == State.Planning || Status == State.Placing || Status == State.Removing;
 
-        // options: bits 0-1 detail (0 main roads, 1 adds streets, 2 adds service roads and tracks).
+        // options: bits 0-1 detail (0 main roads, 1 adds streets, 2 adds service roads and tracks),
+        // bit 2 real street names.
         public void Start(MapFrame frame, int options)
         {
             if (Busy || (m_Running != null && !m_Running.IsCompleted)) return;
             Reset();
             m_Detail = Math.Min(2, options & 3);
+            m_Names = (options & 4) != 0;
             Status = State.Downloading;
             m_Osm.Start(frame, Setting.kWholeMapMetres);
             if (m_Osm.Failed) Fail("Network");
@@ -87,7 +91,7 @@ namespace MapOverlay
             Status = State.Idle;
             Progress = 0f;
             Problem = "";
-            Segments = Bridges = Tunnels = Skipped = 0;
+            Segments = Bridges = Tunnels = Skipped = Named = 0;
         }
 
         // Main thread, every frame.
@@ -108,7 +112,13 @@ namespace MapOverlay
                 Progress = 0.65f;
                 var osm = m_Osm;
                 int detail = m_Detail;
-                m_Task = Task.Run(() => RoadPlanner.Build(osm.DecodeRoads(), detail, Setting.kWholeMapMetres / 2));
+                bool wantNames = m_Names;
+                m_Task = Task.Run(() =>
+                {
+                    var names = new List<OsmWater.RoadName>();
+                    var roads = osm.DecodeRoads(names);
+                    return RoadPlanner.Build(roads, wantNames ? names : null, detail, Setting.kWholeMapMetres / 2);
+                });
                 m_Running = m_Task;
             }
             else if (Status == State.Planning)
@@ -208,7 +218,12 @@ namespace MapOverlay
     {
         private const int kSettleFrames = 3;
 
+        private const float kNameCell = 32f;
+
         private PrefabSystem m_PrefabSystem;
+        private Game.UI.NameSystem m_NameSystem;
+        // Where each named segment was placed, to find its name again on what the game built.
+        private readonly Dictionary<long, List<(float3 Middle, string Name)>> m_Named = new Dictionary<long, List<(float3, string)>>();
         private TerrainSystem m_TerrainSystem;
         private TerrainHeightData m_Heights;
         private EntityArchetype m_Archetype;
@@ -226,6 +241,7 @@ namespace MapOverlay
             base.OnCreate();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_TerrainSystem = World.GetOrCreateSystemManaged<TerrainSystem>();
+            m_NameSystem = World.GetOrCreateSystemManaged<Game.UI.NameSystem>();
         }
 
         protected override void OnGameLoadingComplete(Colossal.Serialization.Entities.Purpose purpose, GameMode mode)
@@ -236,6 +252,7 @@ namespace MapOverlay
             m_HasBefore = false;
             m_Placing = false;
             m_RemoveBatches.Clear();
+            m_Named.Clear();
             Mod.Controller?.Roads?.Abandon();
         }
 
@@ -376,6 +393,7 @@ namespace MapOverlay
                 nodes[i] = new float3((float)plan.Nodes[i].X, plan.Nodes[i].Y, (float)plan.Nodes[i].Z);
 
             int segments = 0, skipped = 0, seed = 1;
+            m_Named.Clear();
             m_One = new NativeArray<Entity>(1, Allocator.Temp);
             foreach (var chain in plan.Chains)
             {
@@ -400,7 +418,13 @@ namespace MapOverlay
                         skipped++;
                         continue;
                     }
-                    Define(prefab, from, to, a, b, seed++, chain.Level > 0);
+                    var middle = Define(prefab, from, to, a, b, seed++, chain.Level > 0);
+                    if (chain.Name != null)
+                    {
+                        long key = NameKey(middle);
+                        if (!m_Named.TryGetValue(key, out var list)) m_Named[key] = list = new List<(float3, string)>();
+                        list.Add((middle, chain.Name));
+                    }
                     segments++;
                     from = to;
                 }
@@ -413,7 +437,12 @@ namespace MapOverlay
             Mod.log.Info($"Roads: placed {segments} segments ({plan.Bridges} bridges, {plan.Tunnels} tunnels, {skipped} skipped) from z{builder.Zoom} tiles.");
         }
 
-        private void Define(Entity prefab, float3 from, float3 to, RoadPlan.Stop a, RoadPlan.Stop b, int seed, bool bridge)
+        private static long NameKey(float3 p) => ((long)math.floor(p.x / kNameCell) << 32) ^ ((long)math.floor(p.z / kNameCell) & 0xffffffffL);
+
+        private static float3 Middle(Bezier4x3 curve) => (curve.a + curve.b * 3f + curve.c * 3f + curve.d) * 0.125f;
+
+        // Returns the middle of the curve.
+        private float3 Define(Entity prefab, float3 from, float3 to, RoadPlan.Stop a, RoadPlan.Stop b, int seed, bool bridge)
         {
             // The segment's own height over the ground, which the game weighs with its two ends'
             // to pick its form. A bridge that leaves the ground is always on pillars, also where
@@ -473,6 +502,58 @@ namespace MapOverlay
                 m_FixedIndex = -1,
             });
             m_Definitions.Add(entity);
+            return Middle(curve);
+        }
+
+        // The game groups the segments it built into streets of its own and names each one. A
+        // street takes the real name that most of its length carries, if that is a good part of it.
+        private int ApplyNames(List<Entity> built)
+        {
+            if (m_Named.Count == 0) return 0;
+            var streets = new Dictionary<Entity, Dictionary<string, float>>();
+            foreach (var edge in built)
+            {
+                if (!EntityManager.HasComponent<Aggregated>(edge) || !EntityManager.HasComponent<Curve>(edge)) continue;
+                var street = EntityManager.GetComponentData<Aggregated>(edge).m_Aggregate;
+                if (street == Entity.Null || !EntityManager.Exists(street)) continue;
+                var curve = EntityManager.GetComponentData<Curve>(edge);
+                var middle = Middle(curve.m_Bezier);
+                string name = "";
+                float best = 24f * 24f;
+                long cx = (long)math.floor(middle.x / kNameCell), cz = (long)math.floor(middle.z / kNameCell);
+                for (long x = cx - 1; x <= cx + 1; x++)
+                    for (long z = cz - 1; z <= cz + 1; z++)
+                    {
+                        if (!m_Named.TryGetValue((x << 32) ^ (z & 0xffffffffL), out var list)) continue;
+                        foreach (var item in list)
+                        {
+                            float distance = math.distancesq(item.Middle, middle);
+                            if (distance >= best) continue;
+                            best = distance;
+                            name = item.Name;
+                        }
+                    }
+                if (!streets.TryGetValue(street, out var votes)) streets[street] = votes = new Dictionary<string, float>();
+                votes.TryGetValue(name, out float length);
+                votes[name] = length + math.max(1f, curve.m_Length);
+            }
+
+            int named = 0;
+            foreach (var street in streets)
+            {
+                string winner = "";
+                float most = 0f, total = 0f;
+                foreach (var vote in street.Value)
+                {
+                    total += vote.Value;
+                    if (vote.Key.Length > 0 && vote.Value > most) { most = vote.Value; winner = vote.Key; }
+                }
+                if (winner.Length == 0 || most < 0.4f * total) continue;
+                m_NameSystem.SetCustomName(street.Key, winner);
+                named++;
+            }
+            m_Named.Clear();
+            return named;
         }
 
         // The game builds from a definition in the frame it is created and clears its Updated tag
@@ -493,10 +574,12 @@ namespace MapOverlay
                 if (EntityManager.Exists(entity) && EntityManager.HasComponent<CreationDefinition>(entity)) EntityManager.DestroyEntity(entity);
             m_Definitions.Clear();
             m_Placing = false;
-            int built = 0;
+            var built = new List<Entity>();
             foreach (var edge in RoadEdges())
-                if (!m_Before.Contains(edge)) built++;
-            Mod.log.Info($"Roads: the game built {built} road segments.");
+                if (!m_Before.Contains(edge)) built.Add(edge);
+            int named = ApplyNames(built);
+            builder.Named = named;
+            Mod.log.Info($"Roads: the game built {built.Count} road segments; {named} streets took their real names.");
             builder.Finished();
         }
 

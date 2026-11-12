@@ -53,6 +53,7 @@ La pestaña **Roads** genera la red de carreteras real sobre el área jugable, e
 - **Tipos**: las teselas no traen el número de carriles, así que el ancho sigue la importancia de la vía (autopista, troncal, primaria…) y si es de sentido único. La tabla está en `RoadPlacementSystem.Candidates`; el log indica qué carretera del juego se usó para cada tipo.
 - **Puentes y túneles**: un puente es un tramo recto entre sus extremos. Si así ya libra lo que cruza (un viaducto sobre un valle, un túnel bajo una colina) no se toca; en terreno llano sus extremos suben o bajan lo que falte y las vías que llegan a ellos hacen de rampa (6 %).
 - **Colocación**: una definición por segmento (`CreationDefinition` + `NetCourse`, como la herramienta de carreteras), todas en el mismo fotograma, porque el juego une los segmentos cuyos extremos están exactamente en el mismo punto. El juego se congela mientras las construye.
+- **Nombres**: con «Real street names», cada calle toma su nombre real (capa `transportation_name`; las autopistas sin nombre, su número). El juego agrupa los segmentos en calles a su manera, así que cada grupo recibe el nombre que lleva la mayor parte de su longitud, si es al menos el 40 %.
 - **Quitar**: «Remove generated roads» borra todas las carreteras añadidas desde que se cargó el mapa.
 
 Límites conocidos: no genera vías de tren, tranvía ni caminos peatonales; no crea conexiones exteriores; y con escalas pequeñas las teselas bajan de zoom y faltan las calles menores.
