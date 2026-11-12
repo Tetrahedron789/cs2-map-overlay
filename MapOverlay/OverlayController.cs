@@ -87,6 +87,7 @@ namespace MapOverlay
 
         internal Geocoder Geocoder { get; private set; }
         internal TerrainBuilder Terrain { get; private set; }
+        internal RoadBuilder Roads { get; private set; }
         internal ProjectStore Projects { get; private set; }
         internal bool Locked => Projects != null && Projects.Locked;
         internal int TilesTotal => m_TileList.Count;
@@ -185,6 +186,7 @@ namespace MapOverlay
             m_Setting = setting;
             Geocoder = new Geocoder(this);
             Terrain = new TerrainBuilder();
+            Roads = new RoadBuilder();
             Projects = new ProjectStore(setting);
             TileCache.RemoveLegacyCache();
             m_Root = new GameObject("MapOverlayTiles") { hideFlags = HideFlags.HideAndDontSave };
@@ -201,6 +203,7 @@ namespace MapOverlay
             Projects?.Close();
             Geocoder?.Dispose();
             Terrain?.Dispose();
+            Roads?.Dispose();
             ClearTiles();
             if (m_Root != null) Destroy(m_Root);
             if (m_DarkenMaterial != null) Destroy(m_DarkenMaterial);
@@ -215,6 +218,7 @@ namespace MapOverlay
                 Geocoder.Tick();
                 Terrain.Tick();
                 if (Terrain.ConsumeFinished()) Projects.MarkTerrainGenerated();
+                Roads.Tick();
                 // The Options menu also has a scale slider; a locked map ignores it.
                 if (Locked && m_Setting.ScalePercent != Projects.Active.ScalePercent)
                 {
@@ -256,6 +260,12 @@ namespace MapOverlay
             if (Projects.Active != null) Terrain.Start(CurrentFrame(), options);
         }
 
+        // Generates the roads of the project's place, framed like the overlay.
+        public void BuildRoads(int options)
+        {
+            if (Projects.Active != null && !Terrain.Busy) Roads.Start(CurrentFrame(), options);
+        }
+
         // ---- Projects ----------------------------------------------------------------------
 
         // A map just loaded: nothing from the last one carries over, and what was open is kept.
@@ -263,36 +273,44 @@ namespace MapOverlay
         {
             Projects.Close();
             Terrain.Forget();
+            Roads.Forget();
             Geocoder.Clear();
         }
 
         internal void CreateProject(string name)
         {
-            if (Terrain.Busy) return;
+            if (Terrain.Busy || Roads.Busy) return;
             Projects.Create(name);
             Terrain.Forget();
+            Roads.Forget();
         }
 
         internal void OpenProject(string id)
         {
-            if (Terrain.Busy) return;
+            if (Terrain.Busy || Roads.Busy) return;
             Projects.Open(id);
             Terrain.Forget();
+            Roads.Forget();
         }
 
         internal void CloseProject()
         {
-            if (Terrain.Busy) return;
+            if (Terrain.Busy || Roads.Busy) return;
             Projects.Close();
             Terrain.Forget();
+            Roads.Forget();
         }
 
         internal void DeleteProject(string id)
         {
-            if (Terrain.Busy) return;
+            if (Terrain.Busy || Roads.Busy) return;
             bool wasActive = Projects.Active?.Id == id;
             Projects.Delete(id);
-            if (wasActive) Terrain.Forget();
+            if (wasActive)
+            {
+                Terrain.Forget();
+                Roads.Forget();
+            }
         }
 
         // ---- Placement ---------------------------------------------------------------------

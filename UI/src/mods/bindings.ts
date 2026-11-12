@@ -85,7 +85,7 @@ export const panelStore = {
 };
 
 // Open tab, kept while the panel is closed.
-export type PanelTab = "overlay" | "terrain";
+export type PanelTab = "overlay" | "terrain" | "roads";
 let panelTab: PanelTab = "overlay";
 const tabListeners = new Set<Listener>();
 
@@ -154,3 +154,28 @@ export const terrainTrees$ = bindValue<number>(group, "terrainTrees", 0);
 // options: bit 0 lakes, bit 1 rivers, bit 2 trees, bits 4-5 tree density.
 export const buildTerrain = (options: number) => trigger(group, "buildTerrain", options);
 export const cancelTerrain = () => trigger(group, "cancelTerrain");
+
+// ---- Roads ----------------------------------------------------------------------------
+
+export enum RoadState {
+  Idle = 0,
+  Downloading = 1,
+  Planning = 2,
+  Placing = 3,
+  Done = 4,
+  Failed = 5,
+}
+
+export const roadState$ = bindValue<number>(group, "roadState", 0);
+export const roadProgress$ = bindValue<number>(group, "roadProgress", 0);
+export const roadProblem$ = bindValue<string>(group, "roadProblem", "");
+export const roadSegments$ = bindValue<number>(group, "roadSegments", 0);
+export const roadBridges$ = bindValue<number>(group, "roadBridges", 0);
+export const roadTunnels$ = bindValue<number>(group, "roadTunnels", 0);
+export const roadSkipped$ = bindValue<number>(group, "roadSkipped", 0);
+export const roadZoom$ = bindValue<number>(group, "roadZoom", 14);
+export const roadCanRemove$ = bindValue<boolean>(group, "roadCanRemove", false);
+// options: bits 0-1 detail (0 main roads, 1 adds streets, 2 adds service roads and tracks).
+export const buildRoads = (options: number) => trigger(group, "buildRoads", options);
+export const cancelRoads = () => trigger(group, "cancelRoads");
+export const removeRoads = () => trigger(group, "removeRoads");

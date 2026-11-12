@@ -52,6 +52,8 @@ namespace MapOverlay
                 // In-game panel bindings (top-left button, see UI/src).
                 updateSystem.UpdateAt<MapOverlayUISystem>(SystemUpdatePhase.UIUpdate);
                 updateSystem.UpdateAt<MapDragTool>(SystemUpdatePhase.ToolUpdate);
+                // Road definitions must exist before the game's Modification phases read them.
+                updateSystem.UpdateAt<RoadPlacementSystem>(SystemUpdatePhase.ToolUpdate);
 
                 log.Info($"Loaded {kVersion}. Zoom={m_Setting.Zoom} Area={m_Setting.AreaKm} km WholeMap={m_Setting.WholeMap} " +
                     $"Center={m_Setting.CenterLat:F6},{m_Setting.CenterLon:F6} Anchor={m_Setting.AnchorX:F0},{m_Setting.AnchorZ:F0}");

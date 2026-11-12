@@ -744,6 +744,156 @@ const TerrainEditorOnly = () => {
   );
 };
 
+// ---- Roads --------------------------------------------------------------------------
+
+const Roads = () => {
+  const text = useText();
+  const state = useValue(b.roadState$);
+  const progress = useValue(b.roadProgress$);
+  const problem = useValue(b.roadProblem$);
+  const segments = useValue(b.roadSegments$);
+  const bridges = useValue(b.roadBridges$);
+  const tunnels = useValue(b.roadTunnels$);
+  const skipped = useValue(b.roadSkipped$);
+  const zoom = useValue(b.roadZoom$);
+  const canRemove = useValue(b.roadCanRemove$);
+  const terrainState = useValue(b.terrainState$);
+  const [detail, setDetail] = useState(1);
+  const [confirming, setConfirming] = useState<"" | "build" | "remove">("");
+  const detailNames = [text("RoadsMain", "Main roads"), text("RoadsStreets", "+ Streets"), text("RoadsAll", "+ Service")];
+  const detailHints = [
+    text("RoadsMainHint", "Motorways, their ramps, and the main through roads."),
+    text("RoadsStreetsHint", "Adds every ordinary street. A dense city centre takes a while to build."),
+    text("RoadsAllHint", "Adds service roads, alleys and dirt tracks too."),
+  ];
+  const busy = state === b.RoadState.Downloading || state === b.RoadState.Planning || state === b.RoadState.Placing;
+  const terrainBusy =
+    terrainState === b.TerrainState.Downloading || terrainState === b.TerrainState.Building || terrainState === b.TerrainState.Planting;
+  const problems: Record<string, [string, string]> = {
+    Network: ["RoadsNetwork", "Road data did not download. Check the connection and try again."],
+    Build: ["RoadsBuild", "The roads could not be built. See MapOverlay.log."],
+    NoRoads: ["RoadsNone", "No roads of this kind were found in the playable area."],
+    NoPrefab: ["RoadsNoPrefab", "The game's road types were not found. See MapOverlay.log."],
+  };
+  const message = problems[problem];
+
+  return (
+    <>
+      <Stack>
+        <Hint>
+          {text(
+            "RoadsHint",
+            "Builds the real roads of this place from OpenStreetMap over the playable area, where the Overlay map shows them: same centre, rotation and scale. Junctions, one-way streets, bridges and tunnels are included."
+          )}
+        </Hint>
+      </Stack>
+      {confirming === "build" ? (
+        <Callout
+          actions={
+            <>
+              <Button onClick={() => setConfirming("")}>{text("Cancel", "Cancel")}</Button>
+              <Button
+                kind="primary"
+                onClick={() => {
+                  setConfirming("");
+                  b.buildRoads(detail);
+                }}
+              >
+                {text("RoadsBuildConfirm", "Build roads")}
+              </Button>
+            </>
+          }
+        >
+          {text(
+            "RoadsConfirm",
+            "This adds roads to the map and does not remove the ones already there. The game freezes while it builds them, up to a few minutes for a whole city. Save first."
+          )}
+        </Callout>
+      ) : confirming === "remove" ? (
+        <Callout
+          actions={
+            <>
+              <Button onClick={() => setConfirming("")}>{text("Cancel", "Cancel")}</Button>
+              <Button
+                kind="primary"
+                onClick={() => {
+                  setConfirming("");
+                  b.removeRoads();
+                }}
+              >
+                {text("RoadsRemove", "Remove")}
+              </Button>
+            </>
+          }
+        >
+          {text("RoadsRemoveConfirm", "This removes every road added since this map was loaded, including any you drew by hand since then.")}
+        </Callout>
+      ) : busy ? (
+        <Stack>
+          <Progress value={progress} />
+          <Meta
+            left={
+              state === b.RoadState.Downloading
+                ? text("RoadsDownloading", "Downloading road data…")
+                : state === b.RoadState.Planning
+                ? text("RoadsPlanning", "Working out junctions…")
+                : text("RoadsPlacing", "Building roads…")
+            }
+            right={`${Math.round(progress * 100)}%`}
+          />
+          {state === b.RoadState.Downloading && (
+            <div className={styles.generate}>
+              <Button kind="ghost" wide onClick={b.cancelRoads}>
+                {text("Cancel", "Cancel")}
+              </Button>
+            </div>
+          )}
+        </Stack>
+      ) : (
+        <Stack>
+          <Caption>{text("RoadsDetail", "Which roads")}</Caption>
+          <Segmented options={[0, 1, 2]} value={detail} format={(i) => detailNames[i]} onSelect={setDetail} />
+          <Hint>{detailHints[detail]}</Hint>
+          <div className={styles.generate}>
+            {terrainBusy ? (
+              <Hint>{text("RoadsWaitTerrain", "Wait for the terrain to finish first.")}</Hint>
+            ) : (
+              <Button kind="primary" wide onClick={() => setConfirming("build")}>
+                {state === b.RoadState.Done ? text("RoadsAgain", "Generate again") : text("RoadsGenerate", "Generate roads here")}
+              </Button>
+            )}
+          </div>
+        </Stack>
+      )}
+      {!busy && confirming === "" && state !== b.RoadState.Done && (
+        <Hint>
+          {text(
+            "RoadsOrderHint",
+            "Generate the terrain first: roads follow the ground as it is now. Lane counts are not in the data, so widths follow each road's importance."
+          )}
+        </Hint>
+      )}
+      {state === b.RoadState.Failed && message && <Hint warning>{text(message[0], message[1])}</Hint>}
+      {state === b.RoadState.Done && (
+        <Stack last>
+          <LabelRow label={text("RoadsSegments", "Road segments")} value={`${segments}`} />
+          <LabelRow label={text("RoadsBridgesTunnels", "Bridges · tunnels")} value={`${bridges} · ${tunnels}`} />
+          {skipped > 0 && <LabelRow label={text("RoadsSkipped", "Left out")} value={`${skipped}`} />}
+          {zoom < 14 && <Hint warning>{text("RoadsCoarse", "At this map scale the data is coarser: small streets are missing.")}</Hint>}
+          {canRemove && confirming === "" && (
+            <div className={styles.generate}>
+              <Button kind="ghost" wide onClick={() => setConfirming("remove")}>
+                {text("RoadsRemoveAll", "Remove generated roads")}
+              </Button>
+            </div>
+          )}
+          <Hint>{text("RoadsCredit", "Roads: © OpenStreetMap contributors, OpenMapTiles, OpenFreeMap.")}</Hint>
+        </Stack>
+      )}
+    </>
+  );
+};
+
 // ---- Footer -------------------------------------------------------------------------
 
 const Status = () => {
@@ -788,7 +938,14 @@ export const OverlayPanel = () => {
   const active = useValue(b.activeProject$);
   const locked = useValue(b.projectLocked$);
   const terrainState = useValue(b.terrainState$);
-  const busy = terrainState === b.TerrainState.Downloading || terrainState === b.TerrainState.Building || terrainState === b.TerrainState.Planting;
+  const roadState = useValue(b.roadState$);
+  const busy =
+    terrainState === b.TerrainState.Downloading ||
+    terrainState === b.TerrainState.Building ||
+    terrainState === b.TerrainState.Planting ||
+    roadState === b.RoadState.Downloading ||
+    roadState === b.RoadState.Planning ||
+    roadState === b.RoadState.Placing;
   const text = useText();
   const tab = useSyncExternalStore(b.tabStore.subscribe, b.tabStore.get);
   const selectTab = (next: b.PanelTab) => {
@@ -838,9 +995,9 @@ export const OverlayPanel = () => {
     >
       <ProjectBar busy={busy} />
       <Tabs
-        options={["overlay", "terrain"] as b.PanelTab[]}
+        options={["overlay", "terrain", "roads"] as b.PanelTab[]}
         value={tab}
-        format={(t) => (t === "overlay" ? text("TabOverlay", "Overlay") : text("TabTerrain", "Terrain"))}
+        format={(t) => (t === "overlay" ? text("TabOverlay", "Overlay") : t === "terrain" ? text("TabTerrain", "Terrain") : text("TabRoads", "Roads"))}
         dimmed={(t) => t === "terrain" && !inEditor}
         onSelect={selectTab}
       />
@@ -852,6 +1009,8 @@ export const OverlayPanel = () => {
           {!locked && <Scale />}
           <Loading />
         </>
+      ) : tab === "roads" ? (
+        <Roads />
       ) : inEditor ? (
         <Terrain />
       ) : (

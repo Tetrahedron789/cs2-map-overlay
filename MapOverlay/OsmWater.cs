@@ -21,6 +21,19 @@ namespace MapOverlay
             public bool Canal;
         }
 
+        // One piece of road from the "transportation" layer, already in world metres. One-way
+        // roads always run in the direction of their points.
+        public sealed class Road
+        {
+            public readonly List<(double X, double Z)> Points = new List<(double, double)>();
+            public string Class;
+            public int Brunnel;     // 1 bridge, -1 tunnel, 0 on the ground
+            public int Layer;       // OSM layer, 0 when not mapped
+            public bool Oneway;
+            public bool Ramp;
+            public bool CutStart, CutEnd; // ends at a tile edge: the road goes on in the next tile
+        }
+
         public sealed class Data
         {
             public byte[] Mask;     // n² cells of kNone..kLake over the map, row 0 south
@@ -51,6 +64,9 @@ namespace MapOverlay
         private double m_Size;
         private int m_Zoom;
         private int m_Total;
+        private List<Road> m_Roads; // set while decoding roads instead of water
+
+        public int Zoom => m_Zoom;
 
         public bool Done { get; private set; }
         public bool Failed { get; private set; }
@@ -245,6 +261,24 @@ namespace MapOverlay
             return data;
         }
 
+        // The roads of the same tiles; a separate pass from the water.
+        public List<Road> DecodeRoads()
+        {
+            var roads = new List<Road>();
+            m_Roads = roads;
+            try
+            {
+                foreach (var tile in m_Tiles)
+                    if (tile.Bytes.Length > 0) ReadTile(Unzip(tile.Bytes), tile.X, tile.Y, null, null);
+            }
+            finally
+            {
+                m_Roads = null;
+            }
+            Mod.log.Info($"OSM roads: z{m_Zoom}, {m_Tiles.Count} tiles, {roads.Count} road pieces.");
+            return roads;
+        }
+
         private static byte[] Unzip(byte[] bytes)
         {
             if (bytes.Length < 2 || bytes[0] != 0x1f || bytes[1] != 0x8b) return bytes;
@@ -291,6 +325,13 @@ namespace MapOverlay
                 else if (field == 4) values.Add(ReadValue(b, i, i + length));
                 i += length;
             }
+            if (m_Roads != null)
+            {
+                if (name != "transportation") return;
+                foreach (var feature in features)
+                    ReadRoad(b, feature.Start, feature.End, keys, values, extent, tx, ty);
+                return;
+            }
             bool polygons = name == "water", lines = name == "waterway";
             if (!polygons && !lines) return;
             foreach (var feature in features)
@@ -303,7 +344,7 @@ namespace MapOverlay
             while (i < end)
             {
                 ulong key = Varint(b, ref i);
-                int wire = (int)(key & 7);
+                int wire = (int)(key & 7), field = (int)(key >> 3);
                 if (wire == 2)
                 {
                     int length = (int)Varint(b, ref i);
@@ -311,7 +352,14 @@ namespace MapOverlay
                     i += length;
                     return text;
                 }
-                if (wire == 0) return Varint(b, ref i).ToString();
+                if (wire == 0)
+                {
+                    // Signed values matter for roads: layer -1, oneway -1.
+                    ulong v = Varint(b, ref i);
+                    if (field == 6) return ((long)(v >> 1) ^ -(long)(v & 1)).ToString();
+                    if (field == 4) return ((long)v).ToString();
+                    return v.ToString();
+                }
                 Skip(b, ref i, wire);
             }
             return "";
@@ -365,6 +413,99 @@ namespace MapOverlay
             {
                 foreach (var path in rings)
                     AddClipped(path, extent, tx, ty, kind == "canal", data.Lines);
+            }
+        }
+
+        private void ReadRoad(byte[] b, int start, int end, List<string> keys, List<string> values, uint extent, int tx, int ty)
+        {
+            string kind = null, brunnel = null, oneway = null, ramp = null, layer = null, service = null;
+            int type = 0;
+            var commands = new List<uint>();
+            int i = start;
+            while (i < end)
+            {
+                ulong key = Varint(b, ref i);
+                int field = (int)(key >> 3), wire = (int)(key & 7);
+                if (field == 3 && wire == 0) { type = (int)Varint(b, ref i); continue; }
+                if (wire != 2) { Skip(b, ref i, wire); continue; }
+                int length = (int)Varint(b, ref i), stop = i + length;
+                if (field == 2)
+                {
+                    while (i < stop)
+                    {
+                        string k = keys[(int)Varint(b, ref i)];
+                        string v = values[(int)Varint(b, ref i)];
+                        if (k == "class") kind = v;
+                        else if (k == "brunnel") brunnel = v;
+                        else if (k == "oneway") oneway = v;
+                        else if (k == "ramp") ramp = v;
+                        else if (k == "layer") layer = v;
+                        else if (k == "service") service = v;
+                    }
+                }
+                else if (field == 4)
+                {
+                    while (i < stop) commands.Add((uint)Varint(b, ref i));
+                }
+                i = stop;
+            }
+            // Lines only: the layer also holds squares and bridge decks as polygons.
+            if (type != 2 || kind == null) return;
+            // Car parks and private driveways would bury the streets in clutter.
+            if (kind == "service" && (service == "parking_aisle" || service == "driveway")) return;
+
+            bool reversed = oneway == "-1";
+            int.TryParse(layer, out int layerValue);
+            foreach (var path in Paths(commands))
+            {
+                int first = m_Roads.Count;
+                AddClippedRoad(path, extent, tx, ty);
+                for (int r = first; r < m_Roads.Count; r++)
+                {
+                    var road = m_Roads[r];
+                    road.Class = kind;
+                    road.Brunnel = brunnel == "bridge" ? 1 : brunnel == "tunnel" ? -1 : 0;
+                    road.Layer = layerValue;
+                    road.Oneway = oneway == "1" || reversed;
+                    road.Ramp = ramp == "1";
+                    if (reversed)
+                    {
+                        road.Points.Reverse();
+                        bool cut = road.CutStart;
+                        road.CutStart = road.CutEnd;
+                        road.CutEnd = cut;
+                    }
+                }
+            }
+        }
+
+        // Like AddClipped, remembering which ends were cut at the tile's edge.
+        private void AddClippedRoad(List<(int X, int Y)> path, uint extent, int tx, int ty)
+        {
+            Road current = null;
+            for (int i = 0; i + 1 < path.Count; i++)
+            {
+                double x0 = path[i].X, y0 = path[i].Y, x1 = path[i + 1].X, y1 = path[i + 1].Y;
+                double t0 = 0, t1 = 1, dx = x1 - x0, dy = y1 - y0;
+                bool inside = Clip(-dx, x0, ref t0, ref t1) && Clip(dx, extent - x0, ref t0, ref t1)
+                    && Clip(-dy, y0, ref t0, ref t1) && Clip(dy, extent - y0, ref t0, ref t1);
+                if (!inside)
+                {
+                    current = null;
+                    continue;
+                }
+                if (current == null)
+                {
+                    current = new Road { CutStart = t0 > 0 };
+                    m_Roads.Add(current);
+                    current.Points.Add(ToWorld(tx + (x0 + dx * t0) / extent, ty + (y0 + dy * t0) / extent));
+                }
+                current.Points.Add(ToWorld(tx + (x0 + dx * t1) / extent, ty + (y0 + dy * t1) / extent));
+                if (t1 < 1)
+                {
+                    current.CutEnd = true;
+                    current = null;
+                }
             }
         }
 

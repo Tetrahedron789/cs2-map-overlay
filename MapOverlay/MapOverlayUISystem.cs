@@ -78,6 +78,19 @@ namespace MapOverlay
             AddUpdateBinding(new GetterValueBinding<int>(kGroup, "terrainSources", () => Mod.Controller?.Terrain?.SourceCount ?? 0));
             AddBinding(new TriggerBinding(kGroup, "cancelTerrain", () => Mod.Controller?.Terrain?.Cancel()));
 
+            AddUpdateBinding(new GetterValueBinding<int>(kGroup, "roadState", () => (int)(Mod.Controller?.Roads?.Status ?? RoadBuilder.State.Idle)));
+            AddUpdateBinding(new GetterValueBinding<float>(kGroup, "roadProgress", () => Mod.Controller?.Roads?.Progress ?? 0f));
+            AddUpdateBinding(new GetterValueBinding<string>(kGroup, "roadProblem", () => Mod.Controller?.Roads?.Problem ?? ""));
+            AddUpdateBinding(new GetterValueBinding<int>(kGroup, "roadSegments", () => Mod.Controller?.Roads?.Segments ?? 0));
+            AddUpdateBinding(new GetterValueBinding<int>(kGroup, "roadBridges", () => Mod.Controller?.Roads?.Bridges ?? 0));
+            AddUpdateBinding(new GetterValueBinding<int>(kGroup, "roadTunnels", () => Mod.Controller?.Roads?.Tunnels ?? 0));
+            AddUpdateBinding(new GetterValueBinding<int>(kGroup, "roadSkipped", () => Mod.Controller?.Roads?.Skipped ?? 0));
+            AddUpdateBinding(new GetterValueBinding<int>(kGroup, "roadZoom", () => Mod.Controller?.Roads?.Zoom ?? 14));
+            AddUpdateBinding(new GetterValueBinding<bool>(kGroup, "roadCanRemove", () => Mod.Controller?.Roads?.CanRemove ?? false));
+            AddBinding(new TriggerBinding<int>(kGroup, "buildRoads", options => Mod.Controller?.BuildRoads(options)));
+            AddBinding(new TriggerBinding(kGroup, "cancelRoads", () => Mod.Controller?.Roads?.Cancel()));
+            AddBinding(new TriggerBinding(kGroup, "removeRoads", () => Mod.Controller?.Roads?.RequestRemove()));
+
             AddBinding(new TriggerBinding<bool>(kGroup, "setVisible", v => Change(s => s.Visible = v)));
             AddBinding(new TriggerBinding<int>(kGroup, "setOpacity", v => Change(s => s.Opacity = v)));
             AddBinding(new TriggerBinding<bool>(kGroup, "setOnTop", v => Change(s => s.OnTop = v)));

@@ -44,6 +44,19 @@ Las teselas se guardan en `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities 
 
 Log: `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\Logs\MapOverlay.log`
 
+## Carreteras (sin probar en el juego)
+
+La pestaña **Roads** genera la red de carreteras real sobre el área jugable, en el mismo encuadre que el Overlay. Funciona en el editor y en partida. Conviene generar antes el terreno, porque las carreteras siguen el suelo tal como está en ese momento.
+
+- **Datos**: la capa `transportation` de las mismas teselas vectoriales que el agua (OpenFreeMap, esquema OpenMapTiles). Se elige qué entra: carreteras principales, también calles, o también vías de servicio y caminos.
+- **Cruces**: las teselas cortan las carreteras en sus bordes y pueden quitar el punto común de dos calles que se cruzan, así que los cruces se reconstruyen por geometría: dos carreteras que se tocan o se cruzan en el mismo nivel se unen; si una es puente o túnel y la otra no, no se unen.
+- **Tipos**: las teselas no traen el número de carriles, así que el ancho sigue la importancia de la vía (autopista, troncal, primaria…) y si es de sentido único. La tabla está en `RoadPlacementSystem.Candidates`; el log indica qué carretera del juego se usó para cada tipo.
+- **Puentes y túneles**: un puente es un tramo recto entre sus extremos. Si así ya libra lo que cruza (un viaducto sobre un valle, un túnel bajo una colina) no se toca; en terreno llano sus extremos suben o bajan lo que falte y las vías que llegan a ellos hacen de rampa (6 %).
+- **Colocación**: una definición por segmento (`CreationDefinition` + `NetCourse`, como la herramienta de carreteras), todas en el mismo fotograma, porque el juego une los segmentos cuyos extremos están exactamente en el mismo punto. El juego se congela mientras las construye.
+- **Quitar**: «Remove generated roads» borra todas las carreteras añadidas desde que se cargó el mapa.
+
+Límites conocidos: no genera vías de tren, tranvía ni caminos peatonales; no crea conexiones exteriores; y con escalas pequeñas las teselas bajan de zoom y faltan las calles menores.
+
 ## Compilar e instalar
 
 Cierra el juego y ejecuta:
@@ -66,6 +79,7 @@ La compilación hace tres cosas:
 - Cada tesela usa `HDRP/Unlit`. El juego no incluye la variante transparente de ese shader, así que la opacidad se hace en dos pasadas que no leen alfa: una oscurece el fondo (`dst * (1 - a)`) y otra suma el mapa (`+ mapa * a`). «Encima de todo» cambia la prueba de profundidad a `Always`.
 - Las descargas usan `UnityWebRequest`, con 2 conexiones como máximo y una pausa de 60 s si el servidor responde 403 o 429.
 - `MapOverlayUISystem` publica el estado para el panel con los bindings del grupo `mapOverlay`.
+- `OsmWater.DecodeRoads` lee las carreteras de las teselas, `RoadPlanner` (`Roads.cs`) arma la red sin tocar el juego y `RoadPlacementSystem` (`RoadBuilder.cs`) la coloca.
 - El panel usa un kit propio (`UI/src/kit`): tokens en `_tokens.scss` y componentes (panel, secciones plegables, interruptores, deslizador, campos de texto…) en `index.tsx`. Para otro mod basta copiar la carpeta y cambiar `$accent`. Las clases CSS llevan el id del mod como prefijo, así dos mods con el mismo kit no chocan.
 
 ## Condiciones de uso de los mapas
