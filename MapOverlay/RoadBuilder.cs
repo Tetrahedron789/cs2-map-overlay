@@ -206,6 +206,7 @@ namespace MapOverlay
         private TerrainSystem m_TerrainSystem;
         private TerrainHeightData m_Heights;
         private EntityArchetype m_Archetype;
+        private NativeArray<Entity> m_One;
         private readonly List<Entity> m_Definitions = new List<Entity>();
         private readonly HashSet<Entity> m_Before = new HashSet<Entity>();
         private bool m_HasBefore;
@@ -364,6 +365,7 @@ namespace MapOverlay
                 nodes[i] = new float3((float)plan.Nodes[i].X, plan.Nodes[i].Y, (float)plan.Nodes[i].Z);
 
             int segments = 0, skipped = 0, seed = 1;
+            m_One = new NativeArray<Entity>(1, Allocator.Temp);
             foreach (var chain in plan.Chains)
             {
                 var prefab = prefabs[(int)chain.Kind * 2 + (chain.Oneway ? 1 : 0)];
@@ -393,6 +395,7 @@ namespace MapOverlay
                 }
             }
 
+            m_One.Dispose();
             m_Placing = true;
             m_Settle = 0;
             builder.Placed(plan, segments, skipped);
@@ -411,7 +414,9 @@ namespace MapOverlay
                 new float3(to.x - (float)b.TX * handle, to.y - rise, to.z - (float)b.TZ * handle),
                 to);
 
-            var entity = EntityManager.CreateEntity(m_Archetype);
+            // The array form: the one-entity overload needs System.Memory, which the mod does not reference.
+            EntityManager.CreateEntity(m_Archetype, m_One);
+            var entity = m_One[0];
             EntityManager.SetComponentData(entity, new CreationDefinition
             {
                 m_Prefab = prefab,
