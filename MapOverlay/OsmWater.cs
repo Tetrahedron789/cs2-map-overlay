@@ -524,7 +524,7 @@ namespace MapOverlay
                 i = stop;
             }
             // Motorways often have only a number (A8, I-5).
-            if (string.IsNullOrWhiteSpace(text)) text = number;
+            if (string.IsNullOrWhiteSpace(text) && number != null) text = number.Split(';')[0];
             if (type != 2 || string.IsNullOrWhiteSpace(text)) return;
             foreach (var path in Paths(commands))
             {
