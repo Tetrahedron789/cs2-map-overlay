@@ -47,6 +47,8 @@ namespace MapOverlay
         public void Start(MapFrame frame, int options)
         {
             if (Busy || (m_Running != null && !m_Running.IsCompleted)) return;
+            // A second network on top of the first would double every road.
+            if (CanRemove) return;
             Reset();
             m_Detail = Math.Min(2, options & 3);
             m_Names = (options & 4) != 0;
@@ -224,6 +226,7 @@ namespace MapOverlay
         private Game.UI.NameSystem m_NameSystem;
         // Where each named segment was placed, to find its name again on what the game built.
         private readonly Dictionary<long, List<(float3 Middle, string Name)>> m_Named = new Dictionary<long, List<(float3, string)>>();
+        private readonly List<(Entity Street, string Name)> m_PendingNames = new List<(Entity, string)>();
         private TerrainSystem m_TerrainSystem;
         private TerrainHeightData m_Heights;
         private EntityArchetype m_Archetype;
@@ -253,6 +256,7 @@ namespace MapOverlay
             m_Placing = false;
             m_RemoveBatches.Clear();
             m_Named.Clear();
+            m_PendingNames.Clear();
             Mod.Controller?.Roads?.Abandon();
         }
 
@@ -549,11 +553,34 @@ namespace MapOverlay
                     if (vote.Key.Length > 0 && vote.Value > most) { most = vote.Value; winner = vote.Key; }
                 }
                 if (winner.Length == 0 || most < 0.4f * total) continue;
-                m_NameSystem.SetCustomName(street.Key, winner);
+                m_PendingNames.Add((street.Key, winner));
                 named++;
             }
             m_Named.Clear();
             return named;
+        }
+
+        // Called in the UI phase, where the game's own rename box runs: the name system may not
+        // be used during the tool phase.
+        internal void ApplyPendingNames()
+        {
+            if (m_PendingNames.Count == 0) return;
+            int applied = 0;
+            try
+            {
+                foreach (var (street, name) in m_PendingNames)
+                {
+                    if (!EntityManager.Exists(street)) continue;
+                    m_NameSystem.SetCustomName(street, name);
+                    applied++;
+                }
+                Mod.log.Info($"Roads: named {applied} streets.");
+            }
+            catch (Exception ex)
+            {
+                Mod.log.Error(ex, $"Roads: naming the streets failed after {applied}.");
+            }
+            m_PendingNames.Clear();
         }
 
         // The game builds from a definition in the frame it is created and clears its Updated tag
@@ -577,9 +604,18 @@ namespace MapOverlay
             var built = new List<Entity>();
             foreach (var edge in RoadEdges())
                 if (!m_Before.Contains(edge)) built.Add(edge);
-            int named = ApplyNames(built);
+            // The roads are in whatever happens to the names.
+            int named = 0;
+            try
+            {
+                named = ApplyNames(built);
+            }
+            catch (Exception ex)
+            {
+                Mod.log.Error(ex, "Roads: matching the street names failed.");
+            }
             builder.Named = named;
-            Mod.log.Info($"Roads: the game built {built.Count} road segments; {named} streets took their real names.");
+            Mod.log.Info($"Roads: the game built {built.Count} road segments; {named} streets take their real names.");
             builder.Finished();
         }
 

@@ -865,6 +865,8 @@ const Roads = () => {
           <div className={styles.generate}>
             {terrainBusy ? (
               <Hint>{text("RoadsWaitTerrain", "Wait for the terrain to finish first.")}</Hint>
+            ) : canRemove ? (
+              <Hint>{text("RoadsRemoveFirst", "Remove the generated roads below before generating again.")}</Hint>
             ) : (
               <Button kind="primary" wide onClick={() => setConfirming("build")}>
                 {state === b.RoadState.Done ? text("RoadsAgain", "Generate again") : text("RoadsGenerate", "Generate roads here")}
@@ -883,20 +885,20 @@ const Roads = () => {
       )}
       {state === b.RoadState.Failed && message && <Hint warning>{text(message[0], message[1])}</Hint>}
       {state === b.RoadState.Done && (
-        <Stack last>
+        <Stack>
           <LabelRow label={text("RoadsSegments", "Road segments")} value={`${segments}`} />
           <LabelRow label={text("RoadsBridgesTunnels", "Bridges · tunnels")} value={`${bridges} · ${tunnels}`} />
           {named > 0 && <LabelRow label={text("RoadsNamed", "Streets with real names")} value={`${named}`} />}
           {skipped > 0 && <LabelRow label={text("RoadsSkipped", "Left out")} value={`${skipped}`} />}
           {zoom < 14 && <Hint warning>{text("RoadsCoarse", "At this map scale the data is coarser: small streets are missing.")}</Hint>}
-          {canRemove && confirming === "" && (
-            <div className={styles.generate}>
-              <Button kind="ghost" wide onClick={() => setConfirming("remove")}>
-                {text("RoadsRemoveAll", "Remove generated roads")}
-              </Button>
-            </div>
-          )}
           <Hint>{text("RoadsCredit", "Roads: © OpenStreetMap contributors, OpenMapTiles, OpenFreeMap.")}</Hint>
+        </Stack>
+      )}
+      {canRemove && !busy && confirming === "" && (
+        <Stack>
+          <Button kind="ghost" wide onClick={() => setConfirming("remove")}>
+            {text("RoadsRemoveAll", "Remove generated roads")}
+          </Button>
         </Stack>
       )}
     </>

@@ -10,11 +10,13 @@ namespace MapOverlay
         private const string kGroup = "mapOverlay";
 
         private MapDragTool m_DragTool;
+        private RoadPlacementSystem m_Roads;
 
         protected override void OnCreate()
         {
             base.OnCreate();
             m_DragTool = World.GetOrCreateSystemManaged<MapDragTool>();
+            m_Roads = World.GetOrCreateSystemManaged<RoadPlacementSystem>();
             AddUpdateBinding(new GetterValueBinding<bool>(kGroup, "dragging", () => m_DragTool.IsActive));
             AddBinding(new TriggerBinding<bool>(kGroup, "setDragging", v => m_DragTool.SetActive(v && !(Mod.Controller?.Locked ?? false))));
 
@@ -110,6 +112,12 @@ namespace MapOverlay
             AddBinding(new TriggerBinding<string>(kGroup, "suggest", q => Mod.Controller?.Geocoder?.Suggest(q)));
             AddBinding(new TriggerBinding(kGroup, "clearSearch", () => Mod.Controller?.Geocoder?.Clear()));
             AddBinding(new TriggerBinding<double, double>(kGroup, "goTo", (lat, lon) => Mod.Controller?.GoTo(lat, lon)));
+        }
+
+        protected override void OnUpdate()
+        {
+            base.OnUpdate();
+            m_Roads.ApplyPendingNames();
         }
 
         protected override void OnGameLoadingComplete(Colossal.Serialization.Entities.Purpose purpose, Game.GameMode mode)
