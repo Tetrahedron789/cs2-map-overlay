@@ -422,7 +422,7 @@ namespace MapOverlay
                         skipped++;
                         continue;
                     }
-                    var middle = Define(prefab, from, to, a, b, seed++, chain.Level > 0);
+                    var middle = Define(prefab, from, to, a, b, seed++, chain.Level > 0, chain.Spans);
                     if (chain.Name != null)
                     {
                         long key = NameKey(middle);
@@ -446,14 +446,15 @@ namespace MapOverlay
         private static float3 Middle(Bezier4x3 curve) => (curve.a + curve.b * 3f + curve.c * 3f + curve.d) * 0.125f;
 
         // Returns the middle of the curve.
-        private float3 Define(Entity prefab, float3 from, float3 to, RoadPlan.Stop a, RoadPlan.Stop b, int seed, bool bridge)
+        private float3 Define(Entity prefab, float3 from, float3 to, RoadPlan.Stop a, RoadPlan.Stop b, int seed, bool bridge, bool spans)
         {
             // The segment's own height over the ground, which the game weighs with its two ends'
             // to pick its form. A bridge that leaves the ground is always on pillars, also where
             // it runs lower than the 2 x limit the game asks for (a low bridge over a river):
-            // an embankment there would dam the water.
+            // an embankment there would dam the water. So is one that stays level over a road sunk
+            // beneath it: the terrain it is measured against does not show the cutting.
             float middle = (a.Elevation + b.Elevation) * 0.5f;
-            if (bridge && (a.Elevation > 0f || b.Elevation > 0f))
+            if (bridge && (spans || a.Elevation > 0f || b.Elevation > 0f))
             {
                 float limit = EntityManager.HasComponent<NetGeometryData>(prefab) ? EntityManager.GetComponentData<NetGeometryData>(prefab).m_ElevationLimit : 4f;
                 middle = math.max(middle, limit * 2f + 0.5f);

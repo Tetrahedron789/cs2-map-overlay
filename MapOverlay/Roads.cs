@@ -19,6 +19,8 @@ namespace MapOverlay
         public const double kRampGrade = 0.08;  // slope of the approaches to a raised bridge or sunk tunnel
         public const double kMaxOffset = 26.0;
         public const float kGroundTolerance = 1f; // closer to the ground than this is on the ground
+        public const double kSinkGrade = 0.05;  // slope of a road going down into a cutting
+        public const double kNoRampRoom = 120.0; // a junction this close to a bridge leaves it no room to climb
 
         public sealed class Node
         {
@@ -39,6 +41,8 @@ namespace MapOverlay
         {
             public double X, Z, S;
             public int Levels;
+            public Chain Under;     // the road on the ground this bridge crosses, if that is what it crosses
+            public double UnderS;
         }
 
         public sealed class Chain
@@ -50,7 +54,9 @@ namespace MapOverlay
             public double Length;
             public Stop[] Stops;
             public string Name;         // the real street's name, null when it has none
+            public bool Spans;          // a bridge at ground level over a road sunk beneath it
             internal List<Crossing> Crossings;
+            internal List<(double S, double Depth)> Sunk;
         }
 
         public readonly List<Node> Nodes = new List<Node>();
@@ -67,19 +73,47 @@ namespace MapOverlay
                 n.Raise = n.Dip = 0;
             }
 
+            var degree = new int[Nodes.Count];
+            var meets = new List<Chain>[Nodes.Count];
+            foreach (var c in Chains)
+            {
+                c.Sunk = null;
+                c.Spans = false;
+                degree[c.A]++;
+                degree[c.B]++;
+                (meets[c.A] ?? (meets[c.A] = new List<Chain>())).Add(c);
+                if (c.B != c.A) (meets[c.B] ?? (meets[c.B] = new List<Chain>())).Add(c);
+            }
+
             // A bridge is a straight span between its ends. Where that already clears what it crosses
-            // (a viaduct over a valley, a tunnel under a hill) nothing moves; on flat ground both ends
-            // are lifted or sunk by what is missing.
+            // (a viaduct over a valley, a tunnel under a hill) nothing moves. On flat ground something
+            // has to give by what is missing: the bridge rises on ramps, or, where junctions right at
+            // its ends leave it no room to climb and the road below has a clear run, that road goes
+            // down into a cutting and the bridge stays level, as a street does over a sunken motorway.
             foreach (var c in Chains)
             {
                 if (c.Crossings == null || c.Level == 0) continue;
                 double gA = Nodes[c.A].Ground, gB = Nodes[c.B].Ground, need = 0;
+                double room = c.Level > 0 ? Math.Min(Run(c, c.A, degree, meets), Run(c, c.B, degree, meets)) : 0;
                 foreach (var x in c.Crossings)
                 {
                     double span = gA + (gB - gA) * (c.Length > 0 ? x.S / c.Length : 0);
                     double g = ground(x.X, x.Z);
                     double gap = c.Level > 0 ? span - g : g - span;
-                    need = Math.Max(need, (c.Level > 0 ? kClearance * x.Levels : kDip) - gap);
+                    double missing = (c.Level > 0 ? kClearance * x.Levels : kDip) - gap;
+                    if (missing < 0.5) continue;
+                    var under = x.Under;
+                    if (c.Level > 0 && under != null && x.Levels == 1 && room < kNoRampRoom)
+                    {
+                        double clear = Math.Min(x.UnderS + Run(under, under.A, degree, meets), under.Length - x.UnderS + Run(under, under.B, degree, meets));
+                        if (clear > room)
+                        {
+                            (under.Sunk ?? (under.Sunk = new List<(double, double)>())).Add((x.UnderS, Math.Min(missing, kMaxOffset)));
+                            c.Spans = true;
+                            continue;
+                        }
+                    }
+                    need = Math.Max(need, missing);
                 }
                 need = Math.Min(need, kMaxOffset);
                 if (need < 0.5) continue;
@@ -93,6 +127,13 @@ namespace MapOverlay
                     Nodes[c.A].Dip = Math.Max(Nodes[c.A].Dip, need);
                     Nodes[c.B].Dip = Math.Max(Nodes[c.B].Dip, need);
                 }
+            }
+            // A cutting that has not climbed back out by the end of its road goes on past the junction.
+            foreach (var c in Chains)
+            {
+                if (c.Sunk == null) continue;
+                Nodes[c.A].Dip = Math.Max(Nodes[c.A].Dip, SunkAt(c, 0));
+                Nodes[c.B].Dip = Math.Max(Nodes[c.B].Dip, SunkAt(c, c.Length));
             }
             Spread(true);
             Spread(false);
@@ -118,7 +159,12 @@ namespace MapOverlay
                     g[i] = i == 0 ? a.Ground : i == last ? b.Ground : ground(stops[i].X, stops[i].Z);
                     double f = c.Length > 0 ? stops[i].S / c.Length : 0;
                     if (c.Level != 0) y[i] = (float)(a.Y + (b.Y - a.Y) * f);
-                    else y[i] = g[i] + (float)((a.Y - a.Ground) + ((b.Y - b.Ground) - (a.Y - a.Ground)) * f);
+                    else
+                    {
+                        double dip = a.Dip + (b.Dip - a.Dip) * f;
+                        if (c.Sunk != null) dip = Math.Max(dip, SunkAt(c, stops[i].S));
+                        y[i] = g[i] + (float)(a.Raise + (b.Raise - a.Raise) * f - dip);
+                    }
                 }
                 bool offGround = false;
                 for (int i = 0; i <= last; i++)
@@ -136,9 +182,35 @@ namespace MapOverlay
                     stops[i].Elevation = e;
                     if (e != 0f) offGround = true;
                 }
-                if (offGround && c.Level > 0) Bridges++;
+                if ((offGround || c.Spans) && c.Level > 0) Bridges++;
                 else if (offGround && c.Level < 0) Tunnels++;
             }
+        }
+
+        // How deep a road's cuttings put it at a point along it.
+        private static double SunkAt(Chain c, double s)
+        {
+            double depth = 0;
+            foreach (var (at, deep) in c.Sunk) depth = Math.Max(depth, deep - kSinkGrade * Math.Abs(s - at));
+            return depth;
+        }
+
+        // How far a road runs on from one of its ends before the next junction: 0 if that end is
+        // one, and through the plain joints where only the kind of road changes.
+        private double Run(Chain chain, int node, int[] degree, List<Chain>[] meets)
+        {
+            double run = 0;
+            for (int hop = 0; hop < 8; hop++)
+            {
+                if (degree[node] >= 3) return run;
+                if (degree[node] != 2) return double.MaxValue / 4; // a dead end: all the room there is
+                Chain next = meets[node][0] == chain ? (meets[node].Count > 1 ? meets[node][1] : null) : meets[node][0];
+                if (next == null || next == chain) return run;
+                run += next.Length;
+                node = next.A == node ? next.B : next.A;
+                chain = next;
+            }
+            return run;
         }
 
         // Carries each lifted (or sunk) node's offset out along the roads that meet it, falling by
@@ -206,7 +278,8 @@ namespace MapOverlay
             public bool Oneway;
             public int Level;
             public bool CutStart, CutEnd;
-            public List<(P Point, int Levels)> Crossings;
+            public List<(P Point, int Levels, int Id)> Crossings;
+            public List<(P Point, int Id)> Under;
             public List<(int Segment, double T, P Point)> Inserts;
         }
 
@@ -534,8 +607,13 @@ namespace MapOverlay
             }
             // Different levels: no junction. Remember it so the heights can keep them apart.
             Line upper = la.Level > lb.Level ? la : lb, lower = upper == la ? lb : la;
-            if (lower.Level < 0) Cross(lower, point, Math.Min(2, -lower.Level));
-            else if (upper.Level > 0) Cross(upper, point, Math.Min(3, upper.Level));
+            int id = ++s_Crossings;
+            if (lower.Level < 0) Cross(lower, point, Math.Min(2, -lower.Level), id);
+            else if (upper.Level > 0)
+            {
+                Cross(upper, point, Math.Min(3, upper.Level), id);
+                if (lower.Level == 0) (lower.Under ?? (lower.Under = new List<(P, int)>())).Add((point, id));
+            }
         }
 
         private static bool Touch(P p, Line other, int segment, P b0, P b1)
@@ -556,9 +634,11 @@ namespace MapOverlay
             (line.Inserts ?? (line.Inserts = new List<(int, double, P)>())).Add((segment, t, point));
         }
 
-        private static void Cross(Line line, P point, int levels)
+        private static int s_Crossings; // one plan is built at a time
+
+        private static void Cross(Line line, P point, int levels, int id)
         {
-            (line.Crossings ?? (line.Crossings = new List<(P, int)>())).Add((point, levels));
+            (line.Crossings ?? (line.Crossings = new List<(P, int, int)>())).Add((point, levels, id));
         }
 
         // ---- Network -----------------------------------------------------------------------
@@ -730,29 +810,49 @@ namespace MapOverlay
             var linksOf = new Dictionary<int, List<int>>();
             for (int s = 0; s < links; s++)
             {
-                if (lines[owner[s]].Crossings == null) continue;
+                if (lines[owner[s]].Crossings == null && lines[owner[s]].Under == null) continue;
                 if (!linksOf.TryGetValue(owner[s], out var list)) linksOf[owner[s]] = list = new List<int>();
                 list.Add(s);
             }
+            RoadPlan.Chain Holder(List<int> own, P point, out double along)
+            {
+                int best = -1;
+                double bestDistance = double.MaxValue;
+                along = 0;
+                foreach (int s in own)
+                {
+                    double distance = ToSegment(point, vertices[from[s]], vertices[to[s]], out _);
+                    if (distance >= bestDistance) continue;
+                    bestDistance = distance;
+                    best = s;
+                }
+                var chain = best >= 0 && chainOf[best] >= 0 ? chains[chainOf[best]] : null;
+                if (chain != null) along = Along(drafts[chainOf[best]].Points, point);
+                return chain;
+            }
+            // The roads on the ground under bridges first, so each bridge can find its own.
+            var under = new Dictionary<int, (RoadPlan.Chain Chain, double S)>();
             foreach (var pair in linksOf)
             {
+                if (lines[pair.Key].Under == null) continue;
+                foreach (var crossing in lines[pair.Key].Under)
+                {
+                    var chain = Holder(pair.Value, crossing.Point, out double along);
+                    if (chain != null) under[crossing.Id] = (chain, along);
+                }
+            }
+            foreach (var pair in linksOf)
+            {
+                if (lines[pair.Key].Crossings == null) continue;
                 foreach (var crossing in lines[pair.Key].Crossings)
                 {
-                    int best = -1;
-                    double bestDistance = double.MaxValue;
-                    foreach (int s in pair.Value)
-                    {
-                        double distance = ToSegment(crossing.Point, vertices[from[s]], vertices[to[s]], out _);
-                        if (distance >= bestDistance) continue;
-                        bestDistance = distance;
-                        best = s;
-                    }
-                    var chain = best >= 0 && chainOf[best] >= 0 ? chains[chainOf[best]] : null;
+                    var chain = Holder(pair.Value, crossing.Point, out double along);
                     if (chain == null) continue;
-                    var points = drafts[chainOf[best]].Points;
+                    under.TryGetValue(crossing.Id, out var below);
                     (chain.Crossings ?? (chain.Crossings = new List<RoadPlan.Crossing>())).Add(new RoadPlan.Crossing
                     {
-                        X = crossing.Point.X, Z = crossing.Point.Z, S = Along(points, crossing.Point), Levels = crossing.Levels,
+                        X = crossing.Point.X, Z = crossing.Point.Z, S = along, Levels = crossing.Levels,
+                        Under = below.Chain, UnderS = below.S,
                     });
                 }
             }
